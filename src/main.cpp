@@ -18,10 +18,12 @@
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
+#include "GitHubCredentialStore.h"
 #include "KOReaderCredentialStore.h"
 #include "MappedInputManager.h"
 #include "OpdsServerStore.h"
 #include "RecentBooksStore.h"
+#include "WatchedReposStore.h"
 #include "activities/Activity.h"
 #include "activities/ActivityManager.h"
 #include "activities/settings/SdFirmwareUpdateActivity.h"
@@ -263,6 +265,11 @@ void setup() {
   I18N.setLanguage(static_cast<Language>(SETTINGS.language));
   KOREADER_STORE.loadFromFile();
   OPDS_STORE.loadFromFile();
+  // GitHub Companion mode (fork-only). Both files are absent on a clean
+  // device; loadFromFile() returns false silently in that case so the
+  // reader-only experience is unaffected.
+  GITHUB_STORE.loadFromFile();
+  WATCHED_REPOS.loadFromFile();
   UITheme::getInstance().reload();
   ButtonNavigator::setMappedInputManager(mappedInputManager);
 

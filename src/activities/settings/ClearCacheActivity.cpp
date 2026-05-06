@@ -94,8 +94,14 @@ void ClearCacheActivity::clearCache() {
     file.getName(name, sizeof(name));
     String itemName(name);
 
-    // Only delete directories starting with epub_ or xtc_
-    if (file.isDirectory() && (itemName.startsWith("epub_") || itemName.startsWith("xtc_"))) {
+    // Only delete directories starting with epub_, xtc_, txt_, or md_:
+    //   epub_  — EPUB section cache (lib/Epub)
+    //   xtc_   — pre-converted EPUB cache
+    //   txt_   — plain-text page-index cache (lib/Txt)
+    //   md_    — Markdown page-index cache (lib/Markdown)
+    // All four are safe to drop — the reader rebuilds them on next open.
+    if (file.isDirectory() && (itemName.startsWith("epub_") || itemName.startsWith("xtc_") ||
+                               itemName.startsWith("txt_") || itemName.startsWith("md_"))) {
       String fullPath = "/.crosspoint/" + itemName;
       LOG_DBG("CLEAR_CACHE", "Removing cache: %s", fullPath.c_str());
 
