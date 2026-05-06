@@ -10,10 +10,12 @@
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
+#include "GitHubCredentialStore.h"
 #include "KOReaderCredentialStore.h"
 #include "OpdsServerStore.h"
 #include "RecentBooksStore.h"
 #include "SettingsList.h"
+#include "WatchedReposStore.h"
 #include "WifiCredentialStore.h"
 
 // Convert legacy settings.
@@ -412,5 +414,82 @@ bool JsonSettingsIO::loadOpds(OpdsServerStore& store, const char* json, bool* ne
   }
 
   LOG_DBG("OPS", "Loaded %zu OPDS servers from file", store.servers.size());
+  return true;
+}
+
+bool JsonSettingsIO::saveGitHub(const GitHubCredentialStore& store, const char* path) {
+  JsonDocument doc;
+  // The PAT is sensitive and obfuscation-tied to this device's MAC. The
+  // login + bot handle are not sensitive; written in plaintext for easy
+  // hand-editing of the JSON if needed.
+  doc["token_obf"] = obfuscation::obfuscateToBase64(store.token);
+  doc["login"] = store.login;
+  doc["copilot_bot"] = store.copilotBot;
+
+  String json;
+  serializeJson(doc, json);
+  return Storage.writeFile(path, json);
+}
+
+bool JsonSettingsIO::loadGitHub(GitHubCredentialStore& store, const char* json, bool* needsResave) {
+  if (needsResave) *needsResave = false;
+  JsonDocument doc;
+  auto error = deserializeJson(doc, json);
+  if (error) {
+    LOG_ERR("GHS", "JSON parse error: %s", error.c_str());
+    return false;
+  }
+
+  // Try the obfuscated key first; fall back to a plaintext "token" field
+  // for files written before obfuscation existed (or hand-edited JSON).
+  bool ok = false;
+  store.token = obfuscation::deobfuscateFromBase64(doc["token_obf"] | "", &ok);
+  if (!ok || store.token.empty()) {
+    store.token = doc["token"] | std::string("");
+    if (!store.token.empty() && needsResave) *needsResave = true;
+  }
+  store.login = doc["login"] | std::string("");
+  store.copilotBot = doc["copilot_bot"] | std::string("");
+
+  // Deliberately do NOT log the token. The presence/absence is enough.
+  LOG_DBG("GHS", "Loaded GitHub credentials (token=%s, login=%s)",
+          store.token.empty() ? "no" : "yes", store.login.c_str());
+  return true;
+}
+
+bool JsonSettingsIO::saveWatchedRepos(const WatchedReposStore& store, const char* path) {
+  JsonDocument doc;
+  JsonArray arr = doc["repos"].to<JsonArray>();
+  for (const auto& r : store.repos) {
+    JsonObject obj = arr.add<JsonObject>();
+    obj["owner"] = r.owner;
+    obj["repo"] = r.repo;
+  }
+
+  String json;
+  serializeJson(doc, json);
+  return Storage.writeFile(path, json);
+}
+
+bool JsonSettingsIO::loadWatchedRepos(WatchedReposStore& store, const char* json) {
+  JsonDocument doc;
+  auto error = deserializeJson(doc, json);
+  if (error) {
+    LOG_ERR("WRS", "JSON parse error: %s", error.c_str());
+    return false;
+  }
+
+  store.repos.clear();
+  JsonArray arr = doc["repos"].as<JsonArray>();
+  for (JsonObject obj : arr) {
+    if (store.repos.size() >= WatchedReposStore::MAX_REPOS) break;
+    WatchedRepo r;
+    r.owner = obj["owner"] | std::string("");
+    r.repo = obj["repo"] | std::string("");
+    if (r.owner.empty() || r.repo.empty()) continue;
+    store.repos.push_back(std::move(r));
+  }
+
+  LOG_DBG("WRS", "Loaded %zu watched repos from file", store.repos.size());
   return true;
 }

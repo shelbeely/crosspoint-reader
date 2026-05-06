@@ -6,6 +6,8 @@ class WifiCredentialStore;
 class KOReaderCredentialStore;
 class RecentBooksStore;
 class OpdsServerStore;
+class GitHubCredentialStore;
+class WatchedReposStore;
 
 namespace JsonSettingsIO {
 
@@ -32,5 +34,13 @@ bool loadRecentBooks(RecentBooksStore& store, const char* json);
 // OpdsServerStore
 bool saveOpds(const OpdsServerStore& store, const char* path);
 bool loadOpds(OpdsServerStore& store, const char* json, bool* needsResave = nullptr);
+
+// GitHubCredentialStore (Phase 2 of GitHub Companion mode)
+bool saveGitHub(const GitHubCredentialStore& store, const char* path);
+bool loadGitHub(GitHubCredentialStore& store, const char* json, bool* needsResave = nullptr);
+
+// WatchedReposStore (Phase 2 of GitHub Companion mode)
+bool saveWatchedRepos(const WatchedReposStore& store, const char* path);
+bool loadWatchedRepos(WatchedReposStore& store, const char* json);
 
 }  // namespace JsonSettingsIO

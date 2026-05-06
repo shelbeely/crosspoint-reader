@@ -126,8 +126,15 @@ These flags in `platformio.ini` fundamentally affect firmware behavior:
   * lib/Markdown/: Streaming block-level Markdown parser. Lowers to the same layout primitives used by `lib/Txt`,
     so margins, fonts, line spacing, and orientation behave identically. Parser has no Arduino/ESP-IDF dependency
     and can be host-built (see `test/markdown/`). **Fork-only** module.
-  * lib/GitHubClient/ *(planned, fork-only)*: Thin REST client over `WiFiClientSecure` for the bounded set of
-    GitHub endpoints listed in `SCOPE.md`. Single connection, streamed JSON parsing, on-demand only.
+  * lib/GitHubClient/ *(fork-only)*: Thin REST client over `NetworkClientSecure` for the bounded set of
+    GitHub endpoints listed in `SCOPE.md`. Single connection, streamed JSON parsing via
+    `lib/JsonParser/StreamingJsonParser`, on-demand only. Includes a host-testable token-bucket `RateLimiter`
+    that honours `X-RateLimit-Reset` on 403/429. Parsers have no Arduino dependency (see `test/github/`).
+* src/GitHubCredentialStore.{h,cpp} *(fork-only)*: Singleton holding the single fine-grained PAT
+  (XOR-obfuscated with hardware MAC + base64 on disk via `JsonSettingsIO::saveGitHub`), cached login,
+  and the configurable Copilot bot handle. Token is **never logged** at any log level.
+* src/WatchedReposStore.{h,cpp} *(fork-only)*: SPIFFS-backed list of `owner/repo` slugs the device polls
+  for CI/issue queues. Capped at 16 entries; rejects malformed slugs.
 * src/activities/: UI logic using the Activity Lifecycle (onEnter, loop, onExit)
 * src/activities/reader/MarkdownReaderActivity: Markdown reader, modelled on `TxtReaderActivity`. Same per-page
   offset cache pattern (cache file under `.crosspoint/md_<hash>/index.bin`).

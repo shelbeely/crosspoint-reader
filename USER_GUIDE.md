@@ -30,7 +30,11 @@ Welcome to the **CrossPoint** firmware. This guide outlines the hardware control
     - [Supported Languages](#supported-languages)
   - [5. Chapter Selection Screen](#5-chapter-selection-screen)
   - [6. Current Limitations \& Roadmap](#6-current-limitations--roadmap)
-  - [7. Troubleshooting Issues \& Escaping Bootloop](#7-troubleshooting-issues--escaping-bootloop)
+  - [7. GitHub Companion Mode (Fork)](#7-github-companion-mode-fork)
+    - [7.1 Required Personal Access Token (PAT) Scopes](#71-required-personal-access-token-pat-scopes)
+    - [7.2 Watchlist (Repo Polling Scope)](#72-watchlist-repo-polling-scope)
+    - [7.3 Data Stored on the Device](#73-data-stored-on-the-device)
+  - [8. Troubleshooting Issues \& Escaping Bootloop](#8-troubleshooting-issues--escaping-bootloop)
 
 
 ## 1. Hardware Overview
@@ -421,7 +425,49 @@ Please note that this firmware is currently in active development. The following
 
 ---
 
-## 7. Troubleshooting Issues & Escaping Bootloop
+## 7. GitHub Companion Mode (Fork)
+
+> This section applies to the **shelbeely fork only**. Upstream `crosspoint-reader` is reader-only — see [`SCOPE.md`](./SCOPE.md) for the dual-mode mission statement.
+
+The companion mode lets the device act as an ambient GitHub dashboard alongside its primary reader role. It surfaces assigned issues, PRs needing review, active PRs, CI status for a small explicit watchlist of repositories, and a few confirmation-guarded write actions (assign to Copilot, rerun failed jobs, request PR summary). The reader experience is **not** affected if companion mode is unconfigured.
+
+### 7.1 Required Personal Access Token (PAT) Scopes
+
+The companion mode authenticates with a **single fine-grained personal access token** stored encrypted on the SD card. Because a lost device exposes whatever the token can do, scope minimization matters — only grant the scopes you actually need. The mapping below is current as of GitHub's 2026 fine-grained PAT model.
+
+| Companion feature | Required repository permission | Required account permission |
+|---|---|---|
+| Validate token, list assigned issues, needs-review and active-PR cards | *(none — `GET /user` and `/search/issues` work with the token's default read access)* | — |
+| Read CI status (workflow runs, jobs) | **Actions: Read** | — |
+| Rerun failed workflow jobs | **Actions: Read and write** | — |
+| Assign an issue to a bot (e.g. Copilot) | **Issues: Read and write** | — |
+| Post a PR summary trigger comment | **Pull requests: Read and write** | — |
+| Read issue/PR bodies in detail view | **Contents: Read**, **Issues: Read**, **Pull requests: Read** | — |
+
+If you want only the **read-only** dashboards (no rerun, no assign, no comment), grant just **Actions: Read**, **Issues: Read**, **Pull requests: Read**, and **Contents: Read**.
+
+The token is sent as `Authorization: Bearer <token>` and is **never logged**, even at debug log levels.
+
+### 7.2 Watchlist (Repo Polling Scope)
+
+For CI status and the issue queue, the device polls only repositories you explicitly add to a small watchlist (cap: 16 entries). There is intentionally **no "all repos I have access to"** mode — enumerating every repo would blow the device memory budget and the GitHub REST rate limit.
+
+Repositories are added by full slug (`owner/repo`). Slugs containing whitespace, `/` (beyond the single owner/repo separator), `?`, `#`, or `&` are rejected.
+
+### 7.3 Data Stored on the Device
+
+| File | Contents | Sensitive? |
+|---|---|---|
+| `.crosspoint/github.json` | PAT (XOR-obfuscated with hardware MAC + base64), cached login, configurable Copilot bot handle | **Yes — token** |
+| `.crosspoint/watched_repos.json` | List of `owner/repo` slugs to poll | No |
+
+The PAT obfuscation is **not cryptographic** — it ties the token to this specific device (a copy of the JSON cannot be decoded on another board or PC) but anyone with physical access to a working device + SD card can recover it. Treat the device like you would an unlocked phone with a saved password manager.
+
+The "Forget Token" action in the planned companion settings UI clears `github.json` immediately. A factory reset (clearing the entire `.crosspoint/` directory) also removes the token along with all reader caches.
+
+---
+
+## 8. Troubleshooting Issues & Escaping Bootloop
 
 If an issue or crash is encountered while using Crosspoint, feel free to raise an issue ticket and attach the serial monitor logs. The logs can be obtained by connecting the device to a computer and starting a serial monitor. Either [Serial Monitor](https://www.serialmonitor.org/) or the following command can be used:
 
