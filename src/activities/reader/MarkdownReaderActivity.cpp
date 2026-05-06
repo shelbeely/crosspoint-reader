@@ -52,6 +52,23 @@ constexpr int MARKER_GUTTER_PX = 16;
 // Pixels reserved for the blockquote vertical bar.
 constexpr int QUOTE_GUTTER_PX = 12;
 
+// True if the block uses a fixed style for all its inline spans (its
+// `baseStyle` overrides per-span styling). Headings render uniformly bold;
+// code blocks render italic and verbatim. Body blocks (paragraphs, lists,
+// quotes) instead use per-span styles.
+bool blockHasFixedStyle(md::BlockKind kind) {
+  switch (kind) {
+    case md::BlockKind::Heading1:
+    case md::BlockKind::Heading2:
+    case md::BlockKind::Heading3:
+    case md::BlockKind::Heading4:
+    case md::BlockKind::CodeBlock:
+      return true;
+    default:
+      return false;
+  }
+}
+
 }  // namespace
 
 void MarkdownReaderActivity::onEnter() {
@@ -265,13 +282,11 @@ void MarkdownReaderActivity::layoutBlock(const md::Block& block, std::vector<Row
   // Emit each span as whitespace-separated tokens.
   for (const auto& span : block.spans) {
     EpdFontFamily::Style style = baseStyle;
-    if (block.kind != md::BlockKind::Heading1 && block.kind != md::BlockKind::Heading2 &&
-        block.kind != md::BlockKind::Heading3 && block.kind != md::BlockKind::Heading4 &&
-        block.kind != md::BlockKind::CodeBlock) {
-      // For body text, the span's style overrides the block base.
+    if (!blockHasFixedStyle(block.kind)) {
+      // Body text: the span's style overrides the block base.
       style = toFontStyle(span.style);
     } else if (block.kind != md::BlockKind::CodeBlock && (span.style & md::STYLE_CODE)) {
-      // Within a heading, allow inline `code` to render italic.
+      // Within a heading, allow inline `code` to render bold-italic.
       style = EpdFontFamily::BOLD_ITALIC;
     }
     bool underline = (span.style & md::STYLE_LINK) != 0;
@@ -375,8 +390,13 @@ bool MarkdownReaderActivity::loadPageAtOffset(size_t startOffset, std::vector<Ro
       // Re-read a larger window starting from current offset.
       size_t newWindow = std::min(CHUNK_SIZE, fileSize - fileOffset);
       if (newWindow == bytesRead) {
-        // Block does not fit even in CHUNK_SIZE; skip past one byte to
-        // make progress and avoid an infinite loop. Documented edge case.
+        // The block does not fit even in CHUNK_SIZE. This is a pathological
+        // input — a single Markdown block larger than 8 KB is unusual but
+        // possible (e.g., a multi-megabyte fenced code block with no
+        // newlines). Skip one byte to guarantee forward progress and log
+        // it so the situation is visible during debugging.
+        LOG_ERR("MDR", "Block exceeds %zu-byte chunk at offset %zu; advancing 1 byte to avoid stall",
+                CHUNK_SIZE, fileOffset);
         fileOffset += 1;
         if (fileOffset >= fileSize) break;
         newWindow = std::min(CHUNK_SIZE, fileSize - fileOffset);
@@ -389,13 +409,14 @@ bool MarkdownReaderActivity::loadPageAtOffset(size_t startOffset, std::vector<Ro
 
     if (block.kind == md::BlockKind::Empty) {
       // Whitespace consumed; advance and continue without emitting rows.
+      // We do NOT reset the parser — its only persistent state is
+      // `_inCodeFence`, which must survive blank-line consumption.
       fileOffset += consumed;
       if (fileOffset >= fileSize) break;
       // Slide window.
       windowSize = std::min(CHUNK_SIZE, fileSize - fileOffset);
       if (!doc->readContent(buffer, fileOffset, windowSize, bytesRead) || bytesRead == 0) break;
       buffer[bytesRead] = '\0';
-      parser.reset();  // safe: parser state across blank lines is stateless except in-fence
       continue;
     }
 
@@ -411,9 +432,13 @@ bool MarkdownReaderActivity::loadPageAtOffset(size_t startOffset, std::vector<Ro
       if (r.extraSpacing) blockHeight += paragraphSpacing;
     }
 
-    if (madeProgress && usedHeight + blockHeight > viewportHeight) {
+    if (madeProgress && usedHeight + blockHeight > viewportHeight && !parser.inCodeFence()) {
       // Page is full. Do NOT consume this block; report it as the next
       // page's start offset.
+      // We refuse to break inside a fenced code block because the next
+      // call to loadPageAtOffset() starts with a fresh BlockParser whose
+      // `_inCodeFence` is false — splitting a fence here would cause the
+      // remaining code lines to be reparsed as Markdown blocks.
       outNextOffset = fileOffset;
       free(buffer);
       return true;
@@ -426,7 +451,7 @@ bool MarkdownReaderActivity::loadPageAtOffset(size_t startOffset, std::vector<Ro
     madeProgress = true;
     fileOffset += consumed;
 
-    if (usedHeight >= viewportHeight) {
+    if (usedHeight >= viewportHeight && !parser.inCodeFence()) {
       outNextOffset = fileOffset;
       free(buffer);
       return true;
