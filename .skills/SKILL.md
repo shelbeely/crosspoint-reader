@@ -1,7 +1,14 @@
 # CrossPoint Reader Development Guide
 
 Project: Open-source e-reader firmware for Xteink X4 (ESP32-C3)
-Mission: Provide a lightweight, high-performance reading experience focused on EPUB rendering on constrained hardware.
+Mission: A **dual-mode device** — a lightweight, high-performance e-reader **and** an ambient GitHub Copilot companion
+(read-only dashboards + a small, explicit, confirmation-guarded set of write actions). The reader experience is
+non-negotiable; companion features are additive and must degrade gracefully. See [`SCOPE.md`](./SCOPE.md) for the full
+dual-mode scope and the **60 KB peak-heap cap** on the entire companion feature set.
+
+> This guide covers a **fork** of `crosspoint-reader/crosspoint-reader`. Upstream's mission is reader-only.
+> Companion-mode features (under `lib/GitHubClient`, `lib/Markdown` for issue/PR body rendering, and the companion
+> activities) are fork-only.
 
 ## AI Agent Identity and Cognitive Rules
 * Role: Senior Embedded Systems Engineer (ESP-IDF/Arduino-ESP32 specialized).
@@ -113,12 +120,20 @@ These flags in `platformio.ini` fundamentally affect firmware behavior:
 - See [lib/GfxRenderer/GfxRenderer.cpp:439-440](../lib/GfxRenderer/GfxRenderer.cpp) for malloc usage
 
 ### Directory Structure
-* lib/: Internal libraries (Epub engine, GfxRenderer, UITheme, I18n)
+* lib/: Internal libraries (Epub engine, GfxRenderer, UITheme, I18n, Markdown)
   * lib/hal/: Hardware Abstraction Layer (HalDisplay, HalGPIO, HalStorage)
   * lib/I18n/: Internationalization (translations in `translations/*.yaml`, generated string tables)
+  * lib/Markdown/: Streaming block-level Markdown parser. Lowers to the same layout primitives used by `lib/Txt`,
+    so margins, fonts, line spacing, and orientation behave identically. Parser has no Arduino/ESP-IDF dependency
+    and can be host-built (see `test/markdown/`). **Fork-only** module.
+  * lib/GitHubClient/ *(planned, fork-only)*: Thin REST client over `WiFiClientSecure` for the bounded set of
+    GitHub endpoints listed in `SCOPE.md`. Single connection, streamed JSON parsing, on-demand only.
 * src/activities/: UI logic using the Activity Lifecycle (onEnter, loop, onExit)
+* src/activities/reader/MarkdownReaderActivity: Markdown reader, modelled on `TxtReaderActivity`. Same per-page
+  offset cache pattern (cache file under `.crosspoint/md_<hash>/index.bin`).
+* src/activities/companion/ *(planned, fork-only)*: Companion-mode dashboards and card detail views.
 * open-x4-sdk/: Low-level SDK (EInkDisplay, InputManager, BatteryMonitor, SDCardManager)
-* .crosspoint/: SD-based binary cache for EPUB metadata and pre-rendered layout sections
+* .crosspoint/: SD-based binary cache for EPUB metadata, pre-rendered layout sections, and Markdown page indices
 
 ### Hardware Abstraction Layer (HAL)
 
@@ -800,7 +815,10 @@ build_flags =
 
 **Location**: `.crosspoint/` directory on SD card root
 
-**Structure**: `.crosspoint/epub_<hash>/{book.bin, progress.bin, cover.bmp, sections/*.bin}`
+**Structure**:
+- EPUB: `.crosspoint/epub_<hash>/{book.bin, progress.bin, cover.bmp, sections/*.bin}`
+- TXT: `.crosspoint/txt_<hash>/{index.bin, progress.bin, cover.bmp}`
+- Markdown: `.crosspoint/md_<hash>/{index.bin, progress.bin}` *(fork-only)*
 
 **Hash**: `std::hash<std::string>{}(filepath)` → Moving/renaming file = new hash = lost progress
 
@@ -849,6 +867,7 @@ rm -rf /path/to/sd/.crosspoint/epub_<hash>/sections/
 **Current Versions** (as of docs/file-formats.md):
 - `book.bin`: **Version 5** (metadata structure)
 - `section.bin`: **Version 12** (layout structure)
+- Markdown `index.bin`: **Version 1** *(fork-only — `lib/Markdown` page index)*
 
 **Version Increment Rules**:
 1. **ALWAYS increment version** BEFORE changing binary structure

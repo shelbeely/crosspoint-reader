@@ -1,7 +1,18 @@
-# CrossPoint Reader
+# CrossPoint Reader (fork)
 
 Firmware for the **Xteink X4** e-paper display reader (unaffiliated with Xteink).
 Built using **PlatformIO** and targeting the **ESP32-C3** microcontroller.
+
+> **This is a fork** of [crosspoint-reader/crosspoint-reader](https://github.com/crosspoint-reader/crosspoint-reader)
+> that intentionally diverges from upstream's "focused reader, nothing else" mission. This fork turns the device into
+> a **dual-mode tool**: a focused e-reader **and** an ambient GitHub Copilot companion (read-only dashboards plus a
+> small, explicit set of confirmed write actions). Reader-only users are unaffected — the companion mode stays dormant
+> until a GitHub token is configured.
+>
+> See [`SCOPE.md`](./SCOPE.md) for the dual-mode scope, the bounded GitHub feature set, the hard 60 KB heap cap on the
+> companion code, and the explicit non-goals (no chat, no editing, no background streaming, no general web browsing).
+>
+> Reader-side contributions intended for upstream should match upstream's scope, not this fork's.
 
 CrossPoint Reader is a purpose-built firmware designed to be a drop-in, fully open-source replacement for the official 
 Xteink firmware. It aims to match or improve upon the standard EPUB reading experience.
@@ -27,6 +38,8 @@ This project is **not affiliated with Xteink**; it's built as a community projec
 
 - [x] EPUB parsing and rendering (EPUB 2 and EPUB 3)
 - [x] Image support within EPUB
+- [x] Plain-text (`.txt`) reading
+- [x] Markdown (`.md`, `.markdown`) reading with headings, lists, code blocks, and inline styles *(this fork)*
 - [x] Saved reading position
 - [x] File explorer with file picker
   - [x] Basic EPUB picker from root directory
