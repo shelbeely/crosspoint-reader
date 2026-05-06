@@ -219,3 +219,38 @@ if (parsedSize != fileSize) {
     std::warning(std::format("Unparsed data detected: {} bytes remaining at offset 0x{:X}", fileSize - parsedSize, parsedSize));
 }
 ```
+
+## `md_<hash>/index.bin` (fork-only)
+
+Per-document Markdown page index produced by `MarkdownReaderActivity`.
+Stores the file offset where each rendered page begins, so reopening a
+Markdown document is instant after the first parse pass.
+
+The cache directory is `.crosspoint/md_<hash>/` where `<hash>` is
+`std::hash<std::string>{}(absoluteFilePath)`. Renaming or moving the
+file produces a new hash and a fresh cache, matching the EPUB and TXT
+readers' behaviour.
+
+### Version 1
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `magic` | `uint32_t` | `0x4D444B49` ("MDKI") |
+| `version` | `uint8_t` | `1` |
+| `fileSize` | `uint32_t` | Source `.md`/`.markdown` file size; mismatch invalidates the cache |
+| `viewportWidth` | `int32_t` | Pixels; invalidated on orientation/margin change |
+| `viewportHeight` | `int32_t` | Pixels |
+| `fontId` | `int32_t` | `SETTINGS.getReaderFontId()` value at index time |
+| `screenMargin` | `int32_t` | `SETTINGS.screenMargin` at index time |
+| `numPages` | `uint32_t` | Number of `pageOffset` entries that follow |
+| `pageOffsets[N]` | `uint32_t` * N | Byte offset into the source file where each page begins |
+
+Pages break only at block boundaries in v1. A single block taller than
+the viewport is rendered to one page and clipped; this is documented as
+deferred work in `SCOPE.md` ("Markdown features beyond v1").
+
+### Companion `progress.bin`
+
+Same 4-byte format as the TXT reader (little-endian `uint32_t` page
+index). Written on every `render()` call but only when the page actually
+changed (debounced via the existing renderer flow).

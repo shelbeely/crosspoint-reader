@@ -129,7 +129,9 @@ bool hasXtcExtension(std::string_view fileName) {
 
 bool hasTxtExtension(std::string_view fileName) { return checkFileExtension(fileName, ".txt"); }
 
-bool hasMarkdownExtension(std::string_view fileName) { return checkFileExtension(fileName, ".md"); }
+bool hasMarkdownExtension(std::string_view fileName) {
+  return checkFileExtension(fileName, ".md") || checkFileExtension(fileName, ".markdown");
+}
 
 std::string extractFolderPath(const std::string& filePath) {
   const auto lastSlash = filePath.find_last_of('/');
