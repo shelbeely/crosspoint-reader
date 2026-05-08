@@ -135,3 +135,15 @@ ruby -rdigest -e 'puts [
   "./notosans_8_regular.h",
 ].map{|f| Digest::SHA256.hexdigest(File.read(f)).to_i(16) }.sum % (2 ** 32) - (2 ** 31)'
 ))"
+
+echo "#define MATERIAL_SYMBOLS_20_FONT_ID ($(
+ruby -rdigest -e 'puts [
+  "./material_symbols_rounded_20.h",
+].map{|f| Digest::SHA256.hexdigest(File.read(f)).to_i(16) }.sum % (2 ** 32) - (2 ** 31)'
+))"
+
+echo "#define MATERIAL_SYMBOLS_24_FONT_ID ($(
+ruby -rdigest -e 'puts [
+  "./material_symbols_rounded_24.h",
+].map{|f| Digest::SHA256.hexdigest(File.read(f)).to_i(16) }.sum % (2 ** 32) - (2 ** 31)'
+))"

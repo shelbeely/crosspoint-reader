@@ -368,7 +368,8 @@ for i_start, i_end in intervals:
         all_glyphs.append((glyph, packed))
 
 # pipe seems to be a good heuristic for the "real" descender
-face = load_glyph(ord('|'))
+# Fall back to the first font face for icon-only fonts that lack ASCII glyphs.
+face = load_glyph(ord('|')) or font_stack[0]
 
 glyph_data = []
 glyph_props = []

@@ -125,6 +125,14 @@ EpdFont ui12RegularFont(&ubuntu_12_regular);
 EpdFont ui12BoldFont(&ubuntu_12_bold);
 EpdFontFamily ui12FontFamily(&ui12RegularFont, &ui12BoldFont);
 
+// Material Symbols Rounded icon font (subsetted to UI icons only).
+// Single-style font: glyphs live in the Unicode Private Use Area; see
+// src/components/MaterialIcons.h for the codepoint table.
+EpdFont materialSymbols20Font(&material_symbols_rounded_20);
+EpdFontFamily materialSymbols20FontFamily(&materialSymbols20Font);
+EpdFont materialSymbols24Font(&material_symbols_rounded_24);
+EpdFontFamily materialSymbols24FontFamily(&materialSymbols24Font);
+
 // measurement of power button press duration calibration value
 unsigned long t1 = 0;
 unsigned long t2 = 0;
@@ -225,6 +233,8 @@ void setupDisplayAndFonts() {
   renderer.insertFont(UI_10_FONT_ID, ui10FontFamily);
   renderer.insertFont(UI_12_FONT_ID, ui12FontFamily);
   renderer.insertFont(SMALL_FONT_ID, smallFontFamily);
+  renderer.insertFont(MATERIAL_SYMBOLS_20_FONT_ID, materialSymbols20FontFamily);
+  renderer.insertFont(MATERIAL_SYMBOLS_24_FONT_ID, materialSymbols24FontFamily);
   LOG_DBG("MAIN", "Fonts setup");
 }
 
