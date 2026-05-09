@@ -219,3 +219,26 @@ if (parsedSize != fileSize) {
     std::warning(std::format("Unparsed data detected: {} bytes remaining at offset 0x{:X}", fileSize - parsedSize, parsedSize));
 }
 ```
+
+## `contacts.bin`
+
+### Version 1
+
+Contacts index cache stored at `/.crosspoint/contacts.bin`. Built on first access from `/contacts.vcf`
+(a Google Contacts vCard export). Invalidated when the `.vcf` file's size changes.
+
+**Header** (11 bytes):
+
+| Offset | Size | Field | Notes |
+|--------|------|-------|-------|
+| 0 | 4 | magic | `0x56434658` ('VCFX') |
+| 4 | 1 | version | Currently `1` |
+| 5 | 4 | vcfSize | Size of the source `.vcf` file in bytes |
+| 9 | 2 | contactCount | Number of index entries that follow |
+
+**Index entry** (68 bytes, repeated `contactCount` times):
+
+| Offset | Size | Field | Notes |
+|--------|------|-------|-------|
+| 0 | 64 | name | Null-terminated display name (FN field), truncated to 63 chars |
+| 64 | 4 | offset | Byte offset of the `BEGIN:VCARD` line in the source `.vcf` file |

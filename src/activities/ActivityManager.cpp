@@ -6,6 +6,7 @@
 
 #include "OpdsServerStore.h"
 #include "SdCardFontGlobals.h"
+#include "activities/contacts/ContactsActivity.h"
 #include "boot_sleep/BootActivity.h"
 #include "boot_sleep/SleepActivity.h"
 #include "browser/OpdsBookBrowserActivity.h"
@@ -201,6 +202,10 @@ void ActivityManager::goToReader(std::string path) {
 void ActivityManager::goToSleep() {
   replaceActivity(std::make_unique<SleepActivity>(renderer, mappedInput));
   loop();  // Important: sleep screen must be rendered immediately, the caller will go to sleep right after this returns
+}
+
+void ActivityManager::goToContacts() {
+  replaceActivity(std::make_unique<ContactsActivity>(renderer, mappedInput));
 }
 
 void ActivityManager::goToBoot() { replaceActivity(std::make_unique<BootActivity>(renderer, mappedInput)); }

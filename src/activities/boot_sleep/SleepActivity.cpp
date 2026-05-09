@@ -6,6 +6,7 @@
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Txt.h>
+#include <VCard.h>
 #include <Xtc.h>
 
 #include "CrossPointSettings.h"
@@ -40,6 +41,8 @@ void SleepActivity::onEnter() {
       } else {
         return renderCustomSleepScreen();
       }
+    case (CrossPointSettings::SLEEP_SCREEN_MODE::CONTACT):
+      return renderContactSleepScreen();
     default:
       return renderDefaultSleepScreen();
   }
@@ -309,5 +312,66 @@ void SleepActivity::renderCoverSleepScreen() const {
 
 void SleepActivity::renderBlankSleepScreen() const {
   renderer.clearScreen();
+  renderer.displayBuffer(HalDisplay::HALF_REFRESH);
+}
+
+void SleepActivity::renderContactSleepScreen() const {
+  VCardParser parser;
+  if (!parser.ensureIndex() || parser.getContactCount() == 0) {
+    LOG_DBG("SLP", "No contacts available, falling back to default sleep screen");
+    return renderDefaultSleepScreen();
+  }
+
+  const uint16_t count = parser.getContactCount();
+  const uint16_t randomIndex = static_cast<uint16_t>(random(count));
+
+  VCardIndexEntry entry = {};
+  if (!parser.getIndexEntry(randomIndex, entry)) {
+    return renderDefaultSleepScreen();
+  }
+
+  VCardContact contact = {};
+  if (!parser.loadContact(VCARD_DEFAULT_PATH, entry.offset, contact)) {
+    // Fallback to name from index entry
+    memset(&contact, 0, sizeof(contact));
+    strncpy(contact.name, entry.name, sizeof(contact.name) - 1);
+  }
+
+  const auto pageWidth = renderer.getScreenWidth();
+  const auto pageHeight = renderer.getScreenHeight();
+  const int centerY = pageHeight / 2;
+  const int x = 20;
+
+  renderer.clearScreen();
+
+  // Name — centered, bold
+  if (contact.name[0]) {
+    renderer.drawCenteredText(UI_12_FONT_ID, centerY - 40, contact.name, true, EpdFontFamily::BOLD);
+  }
+
+  // Org
+  if (contact.org[0]) {
+    renderer.drawCenteredText(UI_10_FONT_ID, centerY - 14, contact.org);
+  }
+
+  // Phone
+  if (contact.phone[0]) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "TEL: %s", contact.phone);
+    renderer.drawCenteredText(SMALL_FONT_ID, centerY + 10, buf);
+  }
+
+  // Email
+  if (contact.email[0]) {
+    char buf[96];
+    snprintf(buf, sizeof(buf), "%s", contact.email);
+    renderer.drawCenteredText(SMALL_FONT_ID, centerY + 32, buf);
+  }
+
+  // Invert for dark mode (matches renderDefaultSleepScreen behaviour)
+  if (SETTINGS.sleepScreen != CrossPointSettings::SLEEP_SCREEN_MODE::LIGHT) {
+    renderer.invertScreen();
+  }
+
   renderer.displayBuffer(HalDisplay::HALF_REFRESH);
 }
