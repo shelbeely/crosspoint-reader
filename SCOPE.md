@@ -1,5 +1,9 @@
 # Project Vision & Scope: CrossPoint Reader
 
+> **Note: This is a personal fork of CrossPoint Reader maintained by shelbeely.**
+> It includes PDA extensions (Contacts viewer) that are intentionally out-of-scope for the upstream project.
+> Changes here may not be accepted upstream.
+
 The goal of CrossPoint Reader is to create an efficient, open-source reading experience for the Xteink X4. We believe a
 dedicated e-reader should do one thing exceptionally well: **facilitate focused reading.**
 
@@ -28,17 +32,19 @@ usability over "swiss-army-knife" functionality.
 * **Reference Tools:** E.g. Local dictionary lookup. Providing quick, offline definitions to enhance comprehension 
   without breaking focus.
 * **Clock Display (device dependent):** 
+* **Contacts Viewer (fork extension):** Browse a Google Contacts export (`.vcf` file copied to SD card root as
+  `/contacts.vcf`) and optionally display a random contact card as the sleep screen.
 
 | Device | Scope |
 | -- | -- |
 | X3 | The X3 uses a dedicated DS3231 RTC, which maintains accurate time across sleep cycles and can be treated as a reliable wall clock. |
 | X4 | The X4 relies on the ESP32-C3's internal RTC, which drifts significantly during deep sleep. NTP sync could correct this, with an appropriate user experience around connecting to the internet on wake or on demand. This causes some tension with the **Active Connectivity** section below, so please open a discussion about this UX if it's a feature you would find useful. |
 
-### Out-of-Scope
+### Out-of-Scope (upstream)
 
 *These items are rejected because they compromise the device's stability or mission.*
 
-* **Interactive Apps:** No Notepads, Calculators, or Games. This is a reader, not a PDA.
+* **Interactive Apps:** No Notepads, Calculators, or Games.
 * **Active Connectivity:** No RSS readers, News aggregators, or Web browsers. Background Wi-Fi tasks drain the battery
   and complicate the single-core CPU's execution.
 * **Media Playback:** No Audio players or Audio-books.
