@@ -5,13 +5,13 @@
 #include <string>
 
 // Max contacts in the index cache. Keeps the index file bounded.
-static constexpr uint16_t VCARD_MAX_CONTACTS = 2000;
+inline constexpr uint16_t VCARD_MAX_CONTACTS = 2000;
 
 // Default path for the vCard file on the SD card
-static constexpr const char* VCARD_DEFAULT_PATH = "/contacts.vcf";
+inline constexpr const char* VCARD_DEFAULT_PATH = "/contacts.vcf";
 
 // Cache path for the contacts index
-static constexpr const char* VCARD_CACHE_PATH = "/.crosspoint/contacts.bin";
+inline constexpr const char* VCARD_CACHE_PATH = "/.crosspoint/contacts.bin";
 
 // Index entry stored in the binary cache file
 struct VCardIndexEntry {

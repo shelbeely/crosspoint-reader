@@ -128,7 +128,7 @@ void ContactsActivity::renderList() {
         [this](int index) {
           VCardIndexEntry entry = {};
           if (parser.getIndexEntry(static_cast<uint16_t>(index), entry)) {
-            return std::string(entry.name);
+            return entry.name[0] ? std::string(entry.name) : std::string(tr(STR_UNNAMED));
           }
           return std::string(tr(STR_UNNAMED));
         },

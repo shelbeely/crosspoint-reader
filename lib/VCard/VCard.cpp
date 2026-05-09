@@ -141,7 +141,8 @@ bool VCardParser::buildIndex(const char* vcfPath) {
   auto flushEntry = [&]() {
     if (count >= VCARD_MAX_CONTACTS) return;
     VCardIndexEntry entry = {};
-    copyField(entry.name, sizeof(entry.name), cardName[0] ? cardName : "(No Name)");
+    // Store empty string if no FN was found; the UI layer shows STR_UNNAMED in that case
+    copyField(entry.name, sizeof(entry.name), cardName);
     entry.offset = cardOffset;
     idx.write(reinterpret_cast<const uint8_t*>(&entry), sizeof(entry));
     ++count;
@@ -163,9 +164,11 @@ bool VCardParser::buildIndex(const char* vcfPath) {
 
       if (!inCard && hasPrefix(lineBuf, "BEGIN:VCARD")) {
         inCard = true;
-        // cardOffset = position of 'B' in "BEGIN:VCARD"
-        cardOffset = bytePos - lineLen - 2;  // approximate start of this line
-        if (cardOffset > bytePos) cardOffset = 0;  // safety clamp
+        // cardOffset = byte position of 'B' in "BEGIN:VCARD"
+        // bytePos counts bytes consumed including the '\n'; lineLen is the line length after stripping '\r'
+        // The line itself is lineLen bytes + 1 byte '\n' = lineLen+1 consumed to reach end of line.
+        // So start of line = bytePos - lineLen - 1
+        cardOffset = (bytePos > lineLen + 1u) ? static_cast<uint32_t>(bytePos - lineLen - 1u) : 0u;
         cardName[0] = '\0';
       } else if (inCard) {
         if (hasPrefix(lineBuf, "FN:") || hasPrefix(lineBuf, "FN;")) {
