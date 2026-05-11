@@ -75,9 +75,9 @@ jobs:
         run: |
           VERSION="${RC_BRANCH_RAW}-RC"
           escaped_version=$(printf '%s\n' "$VERSION" | sed 's/[&|]/\\&/g')
-          sed -i "s|^crossink_version = .*|crossink_version = ${escaped_version}|" platformio.ini
+          sed -i "s|^version = .*|version = ${escaped_version}|" platformio.ini
 
-      - name: Build CrossPoint
+      - name: Build Biscuit Release Candidate
         shell: bash
         env:
           CROSSPOINT_RC_ARTIFACTS: "1"
@@ -96,7 +96,7 @@ jobs:
           token: ${{ secrets.RELEASE_PAT }}
           tag_name: ${{ env.RC_TAG }}
           target_commitish: ${{ github.sha }}
-          name: RC ${{ env.RC_BRANCH_SAFE }} ${{ env.RC_HASH_SHORT }}
+          name: Biscuit-RC-${{ env.RC_BRANCH_SAFE }}-${{ env.RC_HASH_SHORT }}
           body: |
             Draft release candidate build from `release/${{ env.RC_BRANCH_RAW }}` at `${{ env.RC_HASH_SHORT }}`.
           draft: true

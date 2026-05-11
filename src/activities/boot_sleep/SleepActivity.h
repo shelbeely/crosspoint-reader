@@ -17,6 +17,7 @@ class SleepActivity final : public Activity {
   void renderBitmapSleepScreen(const Bitmap& bitmap) const;
   void renderBlankSleepScreen() const;
   void renderOverlaySleepScreen() const;
+  void renderStatusSleepScreen() const;
   bool canSnapshotOverlayBackground = false;
   bool overlayPageBufferStored = false;
   bool overlayPageBufferTrusted = false;

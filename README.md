@@ -1,355 +1,348 @@
-> **This is a personal fork of [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader)** with a focus on improved fonts and minimal reading stats.
+# biscuit.
 
-## What's different in this fork
+Custom firmware for the **Xteink X4** e-paper device. Turns a $70 e-ink reader into a smart device with wireless tools, security features, communication, games, and utilities — while keeping full e-reader functionality.
 
-My goal with this fork was to maintain the core Crosspoint firmware while integrating my preferred typography and some lightweight reading statistics. I’ve focused on keeping the underlying system stable while layering in a few "nice-to-have" features and UI refinements along the way.
+Forked from [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader). All core reading functionality comes from CrossPoint. Biscuit builds on top of it.
 
-<table>
-  <tr>
-    <td align="center">
-      <img src="./docs/images/bitter-small-15-margin.jpg" alt="Font: Bitter, Size: Small, Margin: 15" /><br/>
-      <em>Font: Bitter, Size: Small, Margin: 15</em>
-    </td>
-    <td align="center">
-      <img src="./docs/images/reading-stats.jpg" alt="Reading Stats with custom front button mapping shown" /><br/>
-      <em>Reading Stats with custom front button mapping shown</em>
-    </td>
-  </tr>
-</table>
+![Dashboard](./docs/images/homescreen.jpeg)
 
-### Highlights
+## What is this
 
-- New reader fonts: ChareInk, Lexend Deca, and Bitter
-- Unicode emoji and miscellaneous symbols support
-- Adjusted font sizes: Teensy (8pt), Tiny (10pt), Small (12pt), Medium (14pt), Large (16pt), Extra Large (18pt), Huge (20pt). See [Font Sizes](#font-sizes) for more details.
-- Added ~~strikethrough~~ support
-- Made <u>underlines</u> thicker for better visibility
-- Added improved support for tables with simple markup
-- Added ability to add bookmarks
-- Added ability to remap front buttons that only applies in the reader
-- Added Bionic Reading and Guide Dots as optional reader modes
-- Added Force Paragraph Indents for books that render as one giant wall of text
-- Added ability to pin a sleep image as a favorite. The favorited image will always be displayed when your sleep settings are set to `Custom` or `Cover + Custom` (when no cover is available). Do this from the file browser and long-press the menu button to access the option.
-- Added more in-reader control remapping options for side buttons, short power button clicks, and long-press menu actions
-- Added ability to mark a book as finished from the in-book menu. A pop-up will also display once 99% of the book is reached. This status allows tracking of total books read.
-- Added ability to move finished books to "Read" folder
-  - To turn this on, go to Settings > System > Move finished books to Read folder. Once a book is marked as finished, the book will be moved to the folder when the book is closed.
-- In-book menu to quickly adjust reader options without having to exit the book
-- Reading stats: total books read, total reading time, number of sessions, pages turned, average session time, pages turned per minute. You can also set your reading stats as your sleep screen.
-- Changed label for "Auto Turn (Pages Per Minute)" to "Auto Page Turn Interval (seconds)"
-  - Added additional page turn intervals (how many seconds pass between page turns). Options are now (in seconds): 60, 45, 30, 20, 15, 10, 5, OFF.
-- Added Vietnamese language support
-- Device simulator during development
+Biscuit treats the Xteink X4 as a general-purpose smart device, not just an e-reader. The home screen is a tile-based dashboard with live system info (battery, heap, uptime, WiFi status). Reading is one of eight categories, not the main focus.
 
----
+The 4.26" e-ink display is readable in direct sunlight, retains its image without power, and gives the device days of battery life. Seven physical buttons provide navigation without a touchscreen. WiFi and BLE 5.0 enable wireless tools. A MicroSD card stores everything.
 
-### Reader Fonts
+## Hardware
 
-The default fonts have been replaced with ChareInk, Lexend Deca, and Bitter. These fonts have been chosen specifically to improve reading fluency and e-ink performance. These 'sturdier' typefaces feature uniform stroke weights and open geometries, allowing the X4 to render crisp, high-contrast text with font-aliasing on while significantly reducing ghosting and artifacts.
+| Spec | Value |
+|------|-------|
+| SoC | ESP32-C3 (RISC-V, 160MHz) |
+| RAM | 380KB SRAM (no PSRAM) |
+| Flash | 16MB |
+| Display | 4.26" 800×480 e-ink, 1-bit mono |
+| Input | 7 buttons (4 front, 3 side) |
+| WiFi | 2.4GHz 802.11 b/g/n |
+| BLE | 5.0 (shared radio with WiFi) |
+| Storage | MicroSD (FAT32) |
+| Port | USB-C (serial + power) |
 
-- [ChareInk](https://www.mobileread.com/forums/showthread.php?t=184056) - A cult favorite among the e-reading community for over a decade based off of the typeface [Charis](https://software.sil.org/charis/). It is specially designed to make long texts pleasant and easy to read.
-- [Lexend Deca](https://fonts.google.com/specimen/Lexend+Deca) - A research-backed sans-serif typeface designed to improve reading fluency. Lexend was engineered based on the theory that reading issues are often a design problem (visual crowding) rather than a cognitive one.
-- [Bitter](https://fonts.google.com/specimen/Bitter) - A "contemporary" slab serif typeface for text, it is specially designed for comfortably reading on digital screens. The consistent stroke weight of Bitter helps it render particularly well on e-ink devices. The medium weight has been chosen specifically for improved rendering on the X4.
+## Apps
 
-The UI now uses [Inter](https://fonts.google.com/specimen/Inter) as the display font which has improved readability at smaller sizes.
+The home screen is a dashboard of eight tiles. Everything lives under one of them.
 
-### Emojis and Misc Glyphs
+| Tile | Purpose |
+|------|---------|
+| **Recon** | Passive scanning and monitoring — no transmission |
+| **Offense** | Active wireless testing, grouped into Scan → Profile → Attack → Capture |
+| **Defense** | Stealth, detection, and device hardening |
+| **Comms** | Communication and exchange |
+| **Tools** | Crypto, network, productivity, and creative utilities |
+| **Games** | Entertainment |
+| **Reader** | Ebooks, OPDS, reading stats |
+| **Settings** | Preferences, file transfer, system management |
 
-- Support for a limited set of Unicode [Emoticons](https://unicode-explorer.com/b/1F600) and [Miscellaneous Symbols](https://unicode-explorer.com/b/2600) using [Noto Emoji](https://fonts.google.com/noto/specimen/Noto+Emoji) and [Noto Sans Symbols](https://fonts.google.com/noto/specimen/Noto+Sans+Symbols) font.
+### Recon — scan and monitor (passive only)
 
----
+![Recon tools](./docs/images/recon.jpeg)
 
-### Font Sizes
+All apps in Recon are read-only — they listen but never transmit.
 
-There are 3 available build variants to choose from due to build size constraints: tiny, xlarge, and no_emoji
+| App | What it does |
+|-----|-------------|
+| WiFi Scanner | Discover APs and connected clients |
+| BLE Scanner | Scan BLE devices, browse services and characteristics |
+| Full Sweep | Combined WiFi + BLE passive scan |
+| Packet Monitor | Monitor WiFi frames with PCAP recording |
+| Probe Sniffer | Capture WiFi probe requests |
+| Wardriving | Log access points with signal strength |
+| Crowd Density | Estimate nearby people via probe request counting |
+| Device Fingerprint | Identify device OS from probe request patterns |
+| Vendor Lookup | Identify manufacturer by MAC (OUI database on SD) |
+| AP History | Log visible access points over time to SD |
+| Network Change | Snapshot nearby devices, compare for changes |
+| Perimeter Watch | Alert when new devices appear in area |
+| BLE Proximity | Track BLE device RSSI |
+| WiFi Heat Map | RSSI mapping walkabout |
+| Signal Locator | Estimate AP position via RSSI triangulation |
+| Deauth Detector | Monitor for deauthentication frame spikes |
 
-**tiny**
+### Offense — active wireless testing
 
-> No Extra Large or Huge font size. My preferred build.
+Offense opens a 2×2 sub-menu grouped into four phases. A disclaimer must be acknowledged before first use.
 
-- Emoji & Misc. Symbols Support
-- 5 Font sizes:
-  - Teensy (8pt)
-  - Tiny (10pt)
-  - Small (12pt)
-  - Medium (14pt)
-  - Large (16pt)
+**Scan — target discovery**
 
-**xlarge**
+| App | What it does |
+|-----|-------------|
+| WiFi Scan | Discover APs and clients |
+| BLE Scan | Discover BLE devices |
+| Full Sweep | Combined WiFi + BLE passive scan |
+| Saved Targets | Browse cached target database |
 
-> Teensy, Tiny, and Small font sizes had to be removed to reduce build size and still support emoji/symbols.
+**Profile — target analysis**
 
-- Emoji & Misc. Symbols Support
-- 4 Font sizes:
-  - Medium (14pt)
-  - Large (16pt)
-  - Extra Large (18pt)
-  - Huge (20pt)
+| App | What it does |
+|-----|-------------|
+| Target Profiler | Select and analyze a target |
+| Client Enum | Devices connected to target AP |
+| Host Scanner | Find devices on local network |
+| Vuln Assessment | Check encryption and WPS settings |
+| Signal Locator | Estimate AP position from RSSI |
 
-**no_emoji**
+**Attack — broadcast and testing tools**
 
-> All standard font sizes through Extra Large are available, but no emoji/symbols support.
+| App | What it does |
+|-----|-------------|
+| Beacon Test | Custom beacon broadcasting |
+| WiFi Test | Wireless connectivity testing |
+| Captive Portal | Network portal for testing |
+| Beacon Flood | Broadcast 30 random SSIDs |
+| SSID Clone | Clone a WiFi AP (open, same channel) |
+| BLE Spam | Proximity / Fast Pair / Swift Pair flood |
+| BLE Keyboard | HID keyboard emulation (DuckyScript over BLE) |
+| AirTag Test | Device location testing |
+| USB Keyboard | Wired DuckyScript over USB-C |
 
-- **No** Emoji & Misc. Symbols Support
-- 6 Font sizes:
-  - Teensy (8pt)
-  - Tiny (10pt)
-  - Small (12pt)
-  - Medium (14pt)
-  - Large (16pt)
-  - Extra Large (18pt)
+**Capture — review and export**
 
----
+| App | What it does |
+|-----|-------------|
+| Captured Data | Handshakes, credentials, PCAPs, BLE logs |
+| Credential Viewer | View credentials captured by portal |
+| Probe Log | Recorded WiFi probe requests |
+| Scan History | Browse previously found targets |
+| Wipe Captures | Delete all captured data |
 
-### Reader options in the in-book menu
+### Defense — stealth and protect
 
-Reader settings (font, size, line spacing, margins, alignment, etc.) are now accessible directly from the in-book menu without leaving the book. Open the menu while reading and select **Reader Options** to adjust any reader setting on the spot. Changes take effect immediately.
+Ghost Mode is the headline entry — it rotates MAC, kills radios, and cleans up state in one action (replacing the old standalone MAC Changer and RF Silence apps).
 
-### Bionic Reading
+| App | What it does |
+|-----|-------------|
+| Ghost Mode | MAC rotate + RF kill + state cleanup, one shot |
+| Tracker Detector | Detect AirTags, SmartTags, and Tiles following you |
+| Security Sweep | Scan for cameras, trackers, rogue APs, skimmers |
+| Network Monitor | Detect rogue APs and suspicious frames |
+| Emergency SOS | SOS beacon (WiFi + BLE + Mesh) with dead man's switch |
+| Phone Tether | BLE proximity disconnect alert |
+| Quick Wipe | Erase all biscuit data from SD with verification |
+| PIN Security | Lock device with PIN, duress PIN for fake profile |
+| Screen Decoy | Fake screen to hide activity |
+| SD Encryption | Encrypt biscuit data on SD with PIN |
 
-This feature will bold the initial letters or parts of words, creating "artificial fixation points" that can make it easier to let your brain fill in the rest of the word without having to focus on every letter. You can toggle it from **Reader settings**.
+### Comms — communicate and exchange
 
-This was merged from [CrossPoint PR 1670](https://github.com/crosspoint-reader/crosspoint-reader/pull/1670).
+| App | What it does |
+|-----|-------------|
+| Mesh Chat | ESP-NOW text chat, no WiFi needed, ~200m range, multi-hop relay |
+| SSID Channel | Hide short messages in WiFi network names |
+| Contact Exchange | Swap contact cards between devices via BLE |
+| Dead Drop | Temporary WiFi AP for anonymous file exchange |
+| Bulletin Board | Local anonymous message board via WiFi AP |
 
-### Guide Dots
+### Tools — utilities and productivity
 
-This feature adds small dots between every word. The idea comes from the book [Speed Reading: Learn to Read a 200+ Page Book in 1 Hour](https://amzn.to/4mOPSJo): by focusing on the space between words instead of the words themselves, your peripheral vision can pick up more of the text. You can toggle it from **Reader settings**.
+A single tile that merges the old Network section with crypto, productivity, tracking, and creative apps.
 
-### Force Paragraph Indents
+**Security & crypto**
 
-Have you ever opened a book and the paragraph indents just were not rendering, leaving you with an overwhelming wall of text? That usually happens because some publishers do not define their indents in ways the firmware understands. This setting forces each new paragraph to have an indent regardless of how the book is formatted.
+| App | What it does |
+|-----|-------------|
+| Authenticator | TOTP 2FA codes, fully offline |
+| TOTP QR | Show a 2FA code as a scannable QR |
+| Password Manager | Encrypted credentials stored on SD |
+| Medical Card | Emergency medical info persistent on e-ink |
+| Stego Notes | Hide text inside BMP images |
 
-This works when **Reader Paragraph Alignment** is set to **Left**, **Justify**, or **Book's Style**. You can toggle it from **Reader settings**.
+**Network**
 
-## Custom button actions
+| App | What it does |
+|-----|-------------|
+| WiFi Connect | Join a WiFi network |
+| WiFi Scanner | APs, signal, channels |
+| Host Scanner | Find devices on local network |
+| Ping | Ping a host or IP address |
+| DNS Lookup | Resolve domain names |
+| HTTP Client | Send GET/POST requests |
+| mDNS Browser | Discover local services |
 
-The Controls menu in Settings has been updated to the following
+**Productivity**
 
-<u>**Power Button**</u>
-Short-press Action - **New Options Added**
-Long-press Action - **New**
+| App | What it does |
+|-----|-------------|
+| Clock | NTP clock, stopwatch, pomodoro timer |
+| Calculator | Basic calculator |
+| QR Generator | Generate QR codes from text |
+| Morse Code | Encode and decode morse |
+| Unit Converter | Convert between measurement units |
+| Cipher Tools | ROT13, Caesar, Vigenere, XOR |
+| OTP Generator | One-time pad random number pages |
 
-<u>**Front Buttons**</u>
-Remap Front Buttons
-Remap Front Buttons (reader)
-Long-press Menu Action - **New**
+**Tracking & logging**
 
-<u>**Side Buttons**</u>
-Layout
-Long-press Chapter Skip
-Long-Press Action - **New**
+| App | What it does |
+|-----|-------------|
+| Event Logger | Timestamped notes with WiFi location tagging |
+| Flashcards | Study decks loaded from CSV on SD |
+| Habit Tracker | Daily habit checklist with streak tracking |
+| Breadcrumb Trail | Record and retrace your path using WiFi fingerprints |
+| Vehicle Finder | Find your parked car via WiFi fingerprint matching |
+| Transit Alert | Alert when approaching a saved transit stop |
 
----
+**Creative**
 
-**Side Button Long Press Action** - Use the side buttons to change your font size. Previously, the "Long-press Chapter Skip" applied to both the front and side buttons. I've split this out so now you can change your font size when you long-press them. Press and hold for about 2 seconds: Up to increase font size, Down to decrease font size. Default = Chapter Skip
+| App | What it does |
+|-----|-------------|
+| Etch-A-Sketch | Draw on the e-ink screen, save as BMP |
+| Barcode Generator | Code 128 / Code 39 / EAN-13 |
+| Key Copier | Draw key profiles from bitting codes |
+| WiFi QR Share | Share WiFi credentials as a QR code |
+| File Browser | Browse and view files on SD card |
+| Countdown | Big countdown timer |
 
-**Short-press Power Button Action** - Default = Ignore
-**Long-press Power Button Action** - Default = Sleep
-**Long Press Menu Button Action** (This is the Menu/Confirm button when you are in the reader): Default = Ignore
+### Games
 
-Map the **Power** or **Menu** button short/long-press action to one of the following options:
-- Ignore
-- Sleep
-- Page Turn
-- Refresh Screen
-- Change Font (cycles through the fonts one by one)
-- Guide Dots (turns guide dots on/off)
-- Bionic Reading (turns bionic reading on/off)
-- Toggle Bookmark (adds or removes a bookmark from the current page)
-- Sync Progress (syncs KoReader progress)
-- Mark as Finished (marks book as finished)
-- Reading Stats (displays reading stats)
-- Take Screenshot (takes a screenshot)
-- Auto Page Turn (cycles through the page turn intervals: **Off → 5s → 10s → 15s → 20s → 30s → 45s → 60s → Off →**)
-- File Transfer (opens the File Transfer menu)
+![Tetris on e-ink](./docs/images/tetris.jpeg)
 
-### Reading stats
+Casino (slots, blackjack, roulette, coin flip, higher/lower, loot box), Minesweeper, Sudoku, Chess (with bot), Snake, Tetris, Maze, Dice Roller, Game of Life, Voronoi, Matrix Rain.
 
-Some simple per-book reading stats are tracked automatically and displayed in two places:
+### Reader
 
-**In-book menu → Reading Stats:**
+| App | What it does |
+|-----|-------------|
+| Open Book | Browse and open an ebook |
+| Recent Books | Continue where you left off |
+| OPDS Browser | Download books from OPDS servers |
+| Reading Stats | Pages read, books completed, streaks |
+| Browse Files | File manager for the SD card |
 
-- Total reading time
-- Number of sessions
-- Pages turned
-- Average session time
-- All time reading stats including total number of books read
+Full EPUB 2/3 rendering, KOReader Sync, and Calibre wireless transfer are inherited from CrossPoint.
 
-**Home screen book card (Lyra theme only):**
+### Settings — system and configuration
 
-- Total reading time
-- Average session time
+Promoted to a top-level tile from the old System section.
 
-### Finished books / Read folder
+| App | What it does |
+|-----|-------------|
+| Settings | Display, reader, controls, system configuration |
+| WiFi Transfer | Upload/download files via WiFi (STA, AP, or Calibre) |
+| USB Storage | Share the SD card as a USB mass-storage drive |
+| Task Manager | View heap, uptime, and activity stack |
+| Battery | Battery level with history graph |
+| Device Info | Chip, flash, RAM, firmware, WiFi, screen info |
+| Background | Radio state, SD status, active timers |
+| Automation | WiFi geofence triggers and scheduled tasks |
 
-- You can manually mark a book as finished from the in-book menu
-- At 99% book progress a pop-up will also display asking if you want to mark the book as finished
-- If you have the "Move finished books to Read folder" setting turned on, then once you have marked a book as finished, the book will automatically be moved to a folder named "Read" on your SD card
-- Marking books as finished also enables the total "Books Read" reading stat
+## Themes
 
-### Language Support
+Three UI themes, selectable in Settings:
 
-- Added language support for Vietnamese. This addresses [issue #34](https://github.com/uxjulia/CrossInk/issues/34).
+- **Classic** — original CrossPoint style
+- **Lyra** — rounded elements, modern feel (default)
+- **Military** — inverted headers, sharp corners, dashed separators, uppercase labels
 
----
+## SD card structure
 
-### Development Device Simulator
-
-A [device simulator](https://github.com/uxjulia/crosspoint-simulator) has been added for development purposes to quickly sanity check updates without having to flash the firmware every time. It renders the e-ink display in an SDL2 window. Use with Platformio by choosing the `simulator` environment.
-
-> **Platform support:** The simulator is currently configured for **macOS (Apple Silicon)** only. The `platformio.ini` `[env:simulator]` section contains hardcoded `-arch arm64` and Homebrew paths (`/opt/homebrew`). Intel Mac users need to remove `-arch arm64` and change those paths to `/usr/local`. Linux requires the same path changes plus a replacement for `lib/simulator_mock/src/MD5Builder.h` (which uses the macOS-only `CommonCrypto` API). Native Windows is not supported; use WSL and follow the Linux instructions.
-
-**Prerequisites:** SDL2 must be installed.
-
-```bash
-# macOS
-brew install sdl2
-
-# Linux (Debian/Ubuntu)
-sudo apt install libsdl2-dev
 ```
-
-**Setup:** Place EPUB books in `./fs_/books/` relative to the project root (this maps to the SD card `/books/` path on device).
-
-**Build and run:**
-
-```bash
-pio run -e simulator
-.pio/build/simulator/program
+/biscuit/
+  portals/        # HTML templates for captive portal
+  ducky/          # DuckyScript files for HID keyboard
+  pcap/           # Packet captures
+  scans/          # Network scan results
+  logs/           # WiFi/BLE scan logs, AP history, event logs
+  drawings/       # Etch-A-Sketch saved BMPs
+  trails/         # Breadcrumb trail data
+  snapshots/      # Network change snapshots
+  flashcards/     # Flashcard decks (CSV)
+  creds.csv       # Captured portal credentials
+  medical.dat     # Medical card info
+  totp.dat        # TOTP authenticator secrets (encrypted)
+  casino.dat      # Casino credits
+  habits.dat      # Habit tracker data
+  security.dat    # PIN hashes
+  automation.dat  # Automation rules
+  oui.txt         # IEEE OUI vendor database (user-provided)
 ```
-
-**Keyboard controls:**
-
-| Key    | Action                             |
-| ------ | ---------------------------------- |
-| ↑ / ↓  | Page back / forward (side buttons) |
-| ← / →  | Left / right front buttons         |
-| Return | Confirm / Select                   |
-| Escape | Back                               |
-| P      | Power                              |
-
-> **Note:** On first open of an ebook, an "Indexing..." popup will appear while the section cache is built in `.crosspoint/`. If you see rendering issues after a code change, delete `./fs_/.crosspoint/` to clear stale caches.
-
----
 
 ## Installing
 
-### Web
+### Web flasher (recommended)
 
-1. Download the `firmware-*.bin` file for the build variant of your choosing from the [releases](https://github.com/uxjulia/CrossInk/releases) page
-2. Connect your Xteink X4 to your computer via USB-C and wake/unlock the device
-3. Go to https://crosspointreader.com/#flash-tools and choose your device
-4. Select "Custom .bin" from the options
-5. Choose the `firmware-*.bin` file you downloaded and click "Flash"
+1. Connect your Xteink X4 via USB-C data cable (not charge-only)
+2. Wake the device by pressing Power
+3. Go to https://xteink.dve.al/ and flash the firmware
 
-To revert back to the official firmware, you can flash the latest official firmware from https://crosspointreader.com/#flash-tools
+To revert to stock firmware, use the same site or press "Swap boot partition" at https://xteink.dve.al/debug.
 
-### Command line (specific firmware version)
-
-> **Note:** These instructions are for macOS and Linux. Windows users should use the [Web installer](#web) instead.
-
-1. Install [`esptool`](https://github.com/espressif/esptool) :
+### Manual
 
 ```bash
-pip3 install esptool
-```
-
-2. Download the `firmware-*.bin` file from the release of your choice via the [releases](https://github.com/uxjulia/CrossInk/releases)
-3. Connect your Xteink X4 to your computer via USB-C.
-4. Note the device location. On Linux, run `dmesg | grep tty` after connecting. On macOS, run `ls /dev/cu.*` before and after connecting — the new entry is your device (typically `/dev/cu.usbmodem*`).
-
-5. Flash the firmware :
-
-```bash
-# Update the device port with your actual device port (/dev/...) from step 4
-
-# Linux
-esptool.py --chip esp32c3 --port /dev/ttyACM0 --baud 921600 write_flash 0x10000 /path/to/firmware.bin
-
-# macOS
-esptool.py --chip esp32c3 --port /dev/cu.usbmodem2101 --baud 921600 write_flash 0x10000 /path/to/firmware.bin
+git clone --recursive https://github.com/yattsu/biscuit
+cd biscuit
+pio run --target upload
 ```
 
 ## Development
 
 ### Prerequisites
 
-- **PlatformIO Core** (`pio`) or **VS Code + PlatformIO IDE**
+- PlatformIO Core or VS Code + PlatformIO IDE
 - Python 3.8+
-- USB-C cable for flashing the ESP32-C3
+- USB-C data cable
 - Xteink X4
 
-### Checking out the code
+### Building
 
-CrossPoint uses PlatformIO for building and flashing the firmware. To get started, clone the repository:
-
-```
-git clone --recursive https://github.com/uxjulia/CrossInk
-
-# Or, if you've already cloned without --recursive:
-git submodule update --init --recursive
+```powershell
+# Windows PowerShell
+$env:PYTHONUTF8=1
+pio run -j 16
 ```
 
-### Flashing your device
-
-Connect your Xteink X4 to your computer via USB-C and run the following command. Replace `tiny` with `xlarge` or `no_emoji` if you prefer a different build variant (see [Font Sizes](#font-sizes)).
-
-```sh
-pio run -e tiny --target upload
+```bash
+# Linux / macOS
+pio run -j 16
 ```
+
+### Adding translations
+
+Translations live in `lib/I18n/translations/`. Each language is a YAML file. Add or edit strings, then regenerate:
+
+```bash
+python3 scripts/gen_i18n.py lib/I18n/translations lib/I18n/
+```
+
+See [i18n docs](./docs/i18n.md) for details.
 
 ### Debugging
 
-After flashing the new features, it’s recommended to capture detailed logs from the serial port.
-
-First, make sure all required Python packages are installed:
-
-```python
+```bash
 python3 -m pip install pyserial colorama matplotlib
-```
-
-after that run the script:
-
-```sh
-# For Linux
-# This was tested on Debian and should work on most Linux systems.
 python3 scripts/debugging_monitor.py
-
-# For macOS (replace with your device path from ls /dev/cu.*)
-python3 scripts/debugging_monitor.py /dev/cu.usbmodem2101
 ```
 
-Minor adjustments may be required for Windows.
+The debug monitor shows color-coded logs and a real-time memory graph.
 
-## Internals
+### Architecture
 
-The firmware is pretty aggressive about caching data down to the SD card to minimise RAM usage. The ESP32-C3 only
-has ~380KB of usable RAM, so we have to be careful. A lot of the decisions made in the design of the firmware were based
-on this constraint.
+The firmware uses an activity-based UI architecture. Every screen is an `Activity` subclass with `onEnter()`, `loop()`, `render()`, and `onExit()`. Activities are managed by `ActivityManager` (push/pop/replace). WiFi and BLE share one radio, arbitrated by `RadioManager`.
 
-### Data caching
+See [architecture docs](./docs/contributing/architecture.md) for the full overview.
 
-The first time chapters of a book are loaded, they are cached to the SD card. Subsequent loads are served from the
-cache. This cache directory exists at `.crosspoint` on the SD card. The structure is as follows:
+## Upstream
 
-```
-.crosspoint/
-├── epub_12471232/       # Each EPUB is cached to a subdirectory named `epub_<hash>`
-│   ├── progress.bin     # Stores reading progress (chapter, page, etc.)
-│   ├── stats.bin        # Per-book reading statistics (time, sessions, pages turned)
-│   ├── cover.bmp        # Book cover image (once generated)
-│   ├── book.bin         # Book metadata (title, author, spine, table of contents, etc.)
-│   └── sections/        # All chapter data is stored in the sections subdirectory
-│       ├── 0.bin        # Chapter data (screen count, all text layout info, etc.)
-│       ├── 1.bin        #     files are named by their index in the spine
-│       └── ...
-│
-└── epub_189013891/
+Biscuit tracks CrossPoint Reader as upstream. To sync:
+
+```bash
+git remote add upstream https://github.com/crosspoint-reader/crosspoint-reader.git
+git fetch upstream
+git merge upstream/master
 ```
 
-Deleting the `.crosspoint` directory will clear the entire cache.
+## Credits
 
-Due the way it's currently implemented, the cache is not automatically cleared when a book is deleted and moving a book
-file will use a new cache directory, resetting the reading progress.
+Built on [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) by the CrossPoint contributors. CrossPoint was inspired by [diy-esp32-epub-reader](https://github.com/atomic14/diy-esp32-epub-reader) by atomic14.
 
-For more details on the internal file structures, see the [file formats document](./docs/file-formats.md).
+## License
+
+MIT

@@ -6,7 +6,7 @@ nav_order: 4
 
 # Testing and Debugging
 
-CrossPoint runs on real hardware, so debugging usually combines local build checks and on-device logs.
+Biscuit runs on real hardware, so debugging usually combines local build checks and on-device logs.
 
 ## Local checks
 

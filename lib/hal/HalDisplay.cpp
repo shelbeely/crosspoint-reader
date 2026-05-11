@@ -1,5 +1,5 @@
 #include <HalDisplay.h>
-#include <HalGPIO.h>
+#include <HalGPIO.h>  // EPD pin defines
 
 #include "HalSpiBus.h"
 
@@ -21,13 +21,6 @@ void HalDisplay::begin() {
   }
 
   einkDisplay.begin();
-
-  // Request resync after specific wakeup events to ensure clean display state
-  const auto wakeupReason = gpio.getWakeupReason();
-  if (wakeupReason == HalGPIO::WakeupReason::PowerButton || wakeupReason == HalGPIO::WakeupReason::AfterFlash ||
-      wakeupReason == HalGPIO::WakeupReason::Other) {
-    einkDisplay.requestResync();
-  }
 }
 
 void HalDisplay::clearScreen(uint8_t color) const { einkDisplay.clearScreen(color); }
@@ -96,10 +89,10 @@ void HalDisplay::displayGrayBuffer(bool turnOffScreen) {
   einkDisplay.displayGrayBuffer(turnOffScreen);
 }
 
-uint16_t HalDisplay::getDisplayWidth() const { return einkDisplay.getDisplayWidth(); }
+uint16_t HalDisplay::getDisplayWidth() const { return EInkDisplay::DISPLAY_WIDTH; }
 
-uint16_t HalDisplay::getDisplayHeight() const { return einkDisplay.getDisplayHeight(); }
+uint16_t HalDisplay::getDisplayHeight() const { return EInkDisplay::DISPLAY_HEIGHT; }
 
-uint16_t HalDisplay::getDisplayWidthBytes() const { return einkDisplay.getDisplayWidthBytes(); }
+uint16_t HalDisplay::getDisplayWidthBytes() const { return EInkDisplay::DISPLAY_WIDTH_BYTES; }
 
-uint32_t HalDisplay::getBufferSize() const { return einkDisplay.getBufferSize(); }
+uint32_t HalDisplay::getBufferSize() const { return EInkDisplay::BUFFER_SIZE; }

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Files - CrossInk</title>
+  <title>Biscuit Reader - Files</title>
   <script src="/js/jszip.min.js"></script>
   <style>
     :root {
@@ -1519,7 +1519,11 @@
   </div>
 </div>
 
-<p style="text-align: center; color: var(--label-color); font-size: 0.85em; padding: 20px 0; margin: 0;">CrossInk &bull; Open Source</p>
+<div class="card">
+  <p style="text-align: center; color: #95a5a6; margin: 0;">
+    Biscuit E-Reader • Open Source
+  </p>
+</div>
 
 <!-- Upload Modal -->
 <div class="modal-overlay" id="uploadModal">
@@ -3303,7 +3307,7 @@ function exportLogToFile(filename = null, isBatch = false) {
   }
   // Extract text from log entries
   const entries = logContainer.querySelectorAll('.log-entry');
-  let logText = `CrossInk Reader ${crosspointVersion} - EPUB Conversion Log\n`;
+  let logText = `Biscuit Reader ${crosspointVersion} - EPUB Conversion Log\n`;
   logText += `Generated: ${new Date().toLocaleString()}\n`;
   logText += `${'='.repeat(60)}\n\n`;
 

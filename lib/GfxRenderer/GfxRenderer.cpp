@@ -1128,7 +1128,14 @@ void GfxRenderer::invertScreen() const {
 void GfxRenderer::displayBuffer(const HalDisplay::RefreshMode refreshMode, const bool turnOffScreen) const {
   auto elapsed = millis() - start_ms;
   LOG_DBG("GFX", "Time = %lu ms from clearScreen to displayBuffer", elapsed);
+  if (inverted) {
+    invertScreen();
+  }
   display.displayBuffer(refreshMode, fadingFix || turnOffScreen);
+  if (inverted) {
+    // Restore so the next frame's drawing starts from a clean (non-inverted) state
+    invertScreen();
+  }
 }
 
 std::string GfxRenderer::truncatedText(const int fontId, const char* text, const int maxWidth,
@@ -1485,7 +1492,13 @@ void GfxRenderer::copyGrayscaleLsbBuffers() const { display.copyGrayscaleLsbBuff
 void GfxRenderer::copyGrayscaleMsbBuffers() const { display.copyGrayscaleMsbBuffers(frameBuffer); }
 
 void GfxRenderer::displayGrayBuffer(const bool turnOffScreen) const {
+  if (inverted) {
+    invertScreen();
+  }
   display.displayGrayBuffer(fadingFix || turnOffScreen);
+  if (inverted) {
+    invertScreen();
+  }
 }
 
 void GfxRenderer::freeBwBufferChunks() {
