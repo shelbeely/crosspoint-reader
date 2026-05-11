@@ -172,7 +172,6 @@ bool TextBlock::serialize(FsFile& file) const {
   for (auto dx : wordGuideDotXOffset) {
     if (!serialization::tryWritePod(file, dx)) return false;
   }
-  }
 
   // Style (alignment + margins/padding/indent)
   return serialization::tryWritePod(file, blockStyle.alignment) &&
@@ -259,7 +258,6 @@ std::unique_ptr<TextBlock> TextBlock::deserialize(FsFile& file) {
   }
   for (auto& dx : wordGuideDotXOffset) {
     if (!serialization::tryReadPod(file, dx)) return nullptr;
-  }
   }
 
   // Style (alignment + margins/padding/indent)
