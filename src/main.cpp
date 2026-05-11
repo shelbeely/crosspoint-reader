@@ -2,6 +2,7 @@
 #include <Epub.h>
 #include <FontCacheManager.h>
 #include <FontDecompressor.h>
+#include <FsHelpers.h>
 #include <GfxRenderer.h>
 #include <HalDisplay.h>
 #include <HalGPIO.h>
@@ -14,10 +15,13 @@
 #include <SPI.h>
 #include <builtinFonts/all.h>
 
+#include <algorithm>
 #include <cstring>
 
+#include "AppVersion.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
+#include "GlobalActions.h"
 #include "KOReaderCredentialStore.h"
 #include "MappedInputManager.h"
 #include "OpdsServerStore.h"
@@ -25,6 +29,8 @@
 #include "SdCardFontSystem.h"
 #include "activities/Activity.h"
 #include "activities/ActivityManager.h"
+#include "activities/reader/KOReaderSyncActivity.h"
+#include "activities/settings/KOReaderSettingsActivity.h"
 #include "activities/settings/SdFirmwareUpdateActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -39,97 +45,174 @@ SdCardFontSystem sdFontSystem;
 FontCacheManager fontCacheManager(renderer.getFontMap(), renderer.getSdCardFonts());
 
 // Fonts
-EpdFont notoserif14RegularFont(&notoserif_14_regular);
-EpdFont notoserif14BoldFont(&notoserif_14_bold);
-EpdFont notoserif14ItalicFont(&notoserif_14_italic);
-EpdFont notoserif14BoldItalicFont(&notoserif_14_bolditalic);
-EpdFontFamily notoserif14FontFamily(&notoserif14RegularFont, &notoserif14BoldFont, &notoserif14ItalicFont,
-                                    &notoserif14BoldItalicFont);
-#ifndef OMIT_FONTS
-EpdFont notoserif12RegularFont(&notoserif_12_regular);
-EpdFont notoserif12BoldFont(&notoserif_12_bold);
-EpdFont notoserif12ItalicFont(&notoserif_12_italic);
-EpdFont notoserif12BoldItalicFont(&notoserif_12_bolditalic);
-EpdFontFamily notoserif12FontFamily(&notoserif12RegularFont, &notoserif12BoldFont, &notoserif12ItalicFont,
-                                    &notoserif12BoldItalicFont);
-EpdFont notoserif16RegularFont(&notoserif_16_regular);
-EpdFont notoserif16BoldFont(&notoserif_16_bold);
-EpdFont notoserif16ItalicFont(&notoserif_16_italic);
-EpdFont notoserif16BoldItalicFont(&notoserif_16_bolditalic);
-EpdFontFamily notoserif16FontFamily(&notoserif16RegularFont, &notoserif16BoldFont, &notoserif16ItalicFont,
-                                    &notoserif16BoldItalicFont);
-EpdFont notoserif18RegularFont(&notoserif_18_regular);
-EpdFont notoserif18BoldFont(&notoserif_18_bold);
-EpdFont notoserif18ItalicFont(&notoserif_18_italic);
-EpdFont notoserif18BoldItalicFont(&notoserif_18_bolditalic);
-EpdFontFamily notoserif18FontFamily(&notoserif18RegularFont, &notoserif18BoldFont, &notoserif18ItalicFont,
-                                    &notoserif18BoldItalicFont);
+EpdFont lexenddeca14RegularFont(&lexenddeca_14_regular);
+EpdFont lexenddeca14BoldFont(&lexenddeca_14_bold);
+EpdFont lexenddeca14ItalicFont(&lexenddeca_14_italic);
+EpdFont lexenddeca14BoldItalicFont(&lexenddeca_14_bolditalic);
+EpdFontFamily lexenddeca14FontFamily(&lexenddeca14RegularFont, &lexenddeca14BoldFont, &lexenddeca14ItalicFont,
+                                     &lexenddeca14BoldItalicFont);
+#ifndef OMIT_TEENSY_FONT
+EpdFont charein8RegularFont(&charein_8_regular);
+EpdFont charein8BoldFont(&charein_8_bold);
+EpdFont charein8ItalicFont(&charein_8_italic);
+EpdFont charein8BoldItalicFont(&charein_8_bolditalic);
+EpdFontFamily charein8FontFamily(&charein8RegularFont, &charein8BoldFont, &charein8ItalicFont, &charein8BoldItalicFont);
+#endif
+#ifndef OMIT_TINY_FONT
+EpdFont charein10RegularFont(&charein_10_regular);
+EpdFont charein10BoldFont(&charein_10_bold);
+EpdFont charein10ItalicFont(&charein_10_italic);
+EpdFont charein10BoldItalicFont(&charein_10_bolditalic);
+EpdFontFamily charein10FontFamily(&charein10RegularFont, &charein10BoldFont, &charein10ItalicFont,
+                                  &charein10BoldItalicFont);
+#endif
+#ifndef OMIT_SMALL_FONT
+EpdFont charein12RegularFont(&charein_12_regular);
+EpdFont charein12BoldFont(&charein_12_bold);
+EpdFont charein12ItalicFont(&charein_12_italic);
+EpdFont charein12BoldItalicFont(&charein_12_bolditalic);
+EpdFontFamily charein12FontFamily(&charein12RegularFont, &charein12BoldFont, &charein12ItalicFont,
+                                  &charein12BoldItalicFont);
+#endif
+EpdFont charein14RegularFont(&charein_14_regular);
+EpdFont charein14BoldFont(&charein_14_bold);
+EpdFont charein14ItalicFont(&charein_14_italic);
+EpdFont charein14BoldItalicFont(&charein_14_bolditalic);
+EpdFontFamily charein14FontFamily(&charein14RegularFont, &charein14BoldFont, &charein14ItalicFont,
+                                  &charein14BoldItalicFont);
+EpdFont charein16RegularFont(&charein_16_regular);
+EpdFont charein16BoldFont(&charein_16_bold);
+EpdFont charein16ItalicFont(&charein_16_italic);
+EpdFont charein16BoldItalicFont(&charein_16_bolditalic);
+EpdFontFamily charein16FontFamily(&charein16RegularFont, &charein16BoldFont, &charein16ItalicFont,
+                                  &charein16BoldItalicFont);
+#ifndef OMIT_XLARGE_FONT
+EpdFont charein18RegularFont(&charein_18_regular);
+EpdFont charein18BoldFont(&charein_18_bold);
+EpdFont charein18ItalicFont(&charein_18_italic);
+EpdFont charein18BoldItalicFont(&charein_18_bolditalic);
+EpdFontFamily charein18FontFamily(&charein18RegularFont, &charein18BoldFont, &charein18ItalicFont,
+                                  &charein18BoldItalicFont);
+#endif
+#ifndef OMIT_HUGE_FONT
+EpdFont charein20RegularFont(&charein_20_regular);
+EpdFont charein20BoldFont(&charein_20_bold);
+EpdFont charein20ItalicFont(&charein_20_italic);
+EpdFont charein20BoldItalicFont(&charein_20_bolditalic);
+EpdFontFamily charein20FontFamily(&charein20RegularFont, &charein20BoldFont, &charein20ItalicFont,
+                                  &charein20BoldItalicFont);
+#endif
+#ifndef OMIT_TEENSY_FONT
+EpdFont lexenddeca8RegularFont(&lexenddeca_8_regular);
+EpdFont lexenddeca8BoldFont(&lexenddeca_8_bold);
+EpdFont lexenddeca8ItalicFont(&lexenddeca_8_italic);
+EpdFont lexenddeca8BoldItalicFont(&lexenddeca_8_bolditalic);
+EpdFontFamily lexenddeca8FontFamily(&lexenddeca8RegularFont, &lexenddeca8BoldFont, &lexenddeca8ItalicFont,
+                                    &lexenddeca8BoldItalicFont);
+#endif
+#ifndef OMIT_TINY_FONT
+EpdFont lexenddeca10RegularFont(&lexenddeca_10_regular);
+EpdFont lexenddeca10BoldFont(&lexenddeca_10_bold);
+EpdFont lexenddeca10ItalicFont(&lexenddeca_10_italic);
+EpdFont lexenddeca10BoldItalicFont(&lexenddeca_10_bolditalic);
+EpdFontFamily lexenddeca10FontFamily(&lexenddeca10RegularFont, &lexenddeca10BoldFont, &lexenddeca10ItalicFont,
+                                     &lexenddeca10BoldItalicFont);
+#endif
+#ifndef OMIT_SMALL_FONT
+EpdFont lexenddeca12RegularFont(&lexenddeca_12_regular);
+EpdFont lexenddeca12BoldFont(&lexenddeca_12_bold);
+EpdFont lexenddeca12ItalicFont(&lexenddeca_12_italic);
+EpdFont lexenddeca12BoldItalicFont(&lexenddeca_12_bolditalic);
+EpdFontFamily lexenddeca12FontFamily(&lexenddeca12RegularFont, &lexenddeca12BoldFont, &lexenddeca12ItalicFont,
+                                     &lexenddeca12BoldItalicFont);
+#endif
+EpdFont lexenddeca16RegularFont(&lexenddeca_16_regular);
+EpdFont lexenddeca16BoldFont(&lexenddeca_16_bold);
+EpdFont lexenddeca16ItalicFont(&lexenddeca_16_italic);
+EpdFont lexenddeca16BoldItalicFont(&lexenddeca_16_bolditalic);
+EpdFontFamily lexenddeca16FontFamily(&lexenddeca16RegularFont, &lexenddeca16BoldFont, &lexenddeca16ItalicFont,
+                                     &lexenddeca16BoldItalicFont);
+#ifndef OMIT_XLARGE_FONT
+EpdFont lexenddeca18RegularFont(&lexenddeca_18_regular);
+EpdFont lexenddeca18BoldFont(&lexenddeca_18_bold);
+EpdFont lexenddeca18ItalicFont(&lexenddeca_18_italic);
+EpdFont lexenddeca18BoldItalicFont(&lexenddeca_18_bolditalic);
+EpdFontFamily lexenddeca18FontFamily(&lexenddeca18RegularFont, &lexenddeca18BoldFont, &lexenddeca18ItalicFont,
+                                     &lexenddeca18BoldItalicFont);
+#endif
+#ifndef OMIT_HUGE_FONT
+EpdFont lexenddeca20RegularFont(&lexenddeca_20_regular);
+EpdFont lexenddeca20BoldFont(&lexenddeca_20_bold);
+EpdFont lexenddeca20ItalicFont(&lexenddeca_20_italic);
+EpdFont lexenddeca20BoldItalicFont(&lexenddeca_20_bolditalic);
+EpdFontFamily lexenddeca20FontFamily(&lexenddeca20RegularFont, &lexenddeca20BoldFont, &lexenddeca20ItalicFont,
+                                     &lexenddeca20BoldItalicFont);
+#endif
 
-EpdFont notosans12RegularFont(&notosans_12_regular);
-EpdFont notosans12BoldFont(&notosans_12_bold);
-EpdFont notosans12ItalicFont(&notosans_12_italic);
-EpdFont notosans12BoldItalicFont(&notosans_12_bolditalic);
-EpdFontFamily notosans12FontFamily(&notosans12RegularFont, &notosans12BoldFont, &notosans12ItalicFont,
-                                   &notosans12BoldItalicFont);
-EpdFont notosans14RegularFont(&notosans_14_regular);
-EpdFont notosans14BoldFont(&notosans_14_bold);
-EpdFont notosans14ItalicFont(&notosans_14_italic);
-EpdFont notosans14BoldItalicFont(&notosans_14_bolditalic);
-EpdFontFamily notosans14FontFamily(&notosans14RegularFont, &notosans14BoldFont, &notosans14ItalicFont,
-                                   &notosans14BoldItalicFont);
-EpdFont notosans16RegularFont(&notosans_16_regular);
-EpdFont notosans16BoldFont(&notosans_16_bold);
-EpdFont notosans16ItalicFont(&notosans_16_italic);
-EpdFont notosans16BoldItalicFont(&notosans_16_bolditalic);
-EpdFontFamily notosans16FontFamily(&notosans16RegularFont, &notosans16BoldFont, &notosans16ItalicFont,
-                                   &notosans16BoldItalicFont);
-EpdFont notosans18RegularFont(&notosans_18_regular);
-EpdFont notosans18BoldFont(&notosans_18_bold);
-EpdFont notosans18ItalicFont(&notosans_18_italic);
-EpdFont notosans18BoldItalicFont(&notosans_18_bolditalic);
-EpdFontFamily notosans18FontFamily(&notosans18RegularFont, &notosans18BoldFont, &notosans18ItalicFont,
-                                   &notosans18BoldItalicFont);
+#ifndef OMIT_TEENSY_FONT
+EpdFont bitter8RegularFont(&bitter_8_regular);
+EpdFont bitter8BoldFont(&bitter_8_bold);
+EpdFont bitter8ItalicFont(&bitter_8_italic);
+EpdFont bitter8BoldItalicFont(&bitter_8_bolditalic);
+EpdFontFamily bitter8FontFamily(&bitter8RegularFont, &bitter8BoldFont, &bitter8ItalicFont, &bitter8BoldItalicFont);
+#endif
+#ifndef OMIT_TINY_FONT
+EpdFont bitter10RegularFont(&bitter_10_regular);
+EpdFont bitter10BoldFont(&bitter_10_bold);
+EpdFont bitter10ItalicFont(&bitter_10_italic);
+EpdFont bitter10BoldItalicFont(&bitter_10_bolditalic);
+EpdFontFamily bitter10FontFamily(&bitter10RegularFont, &bitter10BoldFont, &bitter10ItalicFont, &bitter10BoldItalicFont);
+#endif
+#ifndef OMIT_SMALL_FONT
+EpdFont bitter12RegularFont(&bitter_12_regular);
+EpdFont bitter12BoldFont(&bitter_12_bold);
+EpdFont bitter12ItalicFont(&bitter_12_italic);
+EpdFont bitter12BoldItalicFont(&bitter_12_bolditalic);
+EpdFontFamily bitter12FontFamily(&bitter12RegularFont, &bitter12BoldFont, &bitter12ItalicFont, &bitter12BoldItalicFont);
+#endif
+EpdFont bitter14RegularFont(&bitter_14_regular);
+EpdFont bitter14BoldFont(&bitter_14_bold);
+EpdFont bitter14ItalicFont(&bitter_14_italic);
+EpdFont bitter14BoldItalicFont(&bitter_14_bolditalic);
+EpdFontFamily bitter14FontFamily(&bitter14RegularFont, &bitter14BoldFont, &bitter14ItalicFont, &bitter14BoldItalicFont);
+EpdFont bitter16RegularFont(&bitter_16_regular);
+EpdFont bitter16BoldFont(&bitter_16_bold);
+EpdFont bitter16ItalicFont(&bitter_16_italic);
+EpdFont bitter16BoldItalicFont(&bitter_16_bolditalic);
+EpdFontFamily bitter16FontFamily(&bitter16RegularFont, &bitter16BoldFont, &bitter16ItalicFont, &bitter16BoldItalicFont);
+#ifndef OMIT_XLARGE_FONT
+EpdFont bitter18RegularFont(&bitter_18_regular);
+EpdFont bitter18BoldFont(&bitter_18_bold);
+EpdFont bitter18ItalicFont(&bitter_18_italic);
+EpdFont bitter18BoldItalicFont(&bitter_18_bolditalic);
+EpdFontFamily bitter18FontFamily(&bitter18RegularFont, &bitter18BoldFont, &bitter18ItalicFont, &bitter18BoldItalicFont);
+#endif
+#ifndef OMIT_HUGE_FONT
+EpdFont bitter20RegularFont(&bitter_20_regular);
+EpdFont bitter20BoldFont(&bitter_20_bold);
+EpdFont bitter20ItalicFont(&bitter_20_italic);
+EpdFont bitter20BoldItalicFont(&bitter_20_bolditalic);
+EpdFontFamily bitter20FontFamily(&bitter20RegularFont, &bitter20BoldFont, &bitter20ItalicFont, &bitter20BoldItalicFont);
+#endif
 
-EpdFont opendyslexic8RegularFont(&opendyslexic_8_regular);
-EpdFont opendyslexic8BoldFont(&opendyslexic_8_bold);
-EpdFont opendyslexic8ItalicFont(&opendyslexic_8_italic);
-EpdFont opendyslexic8BoldItalicFont(&opendyslexic_8_bolditalic);
-EpdFontFamily opendyslexic8FontFamily(&opendyslexic8RegularFont, &opendyslexic8BoldFont, &opendyslexic8ItalicFont,
-                                      &opendyslexic8BoldItalicFont);
-EpdFont opendyslexic10RegularFont(&opendyslexic_10_regular);
-EpdFont opendyslexic10BoldFont(&opendyslexic_10_bold);
-EpdFont opendyslexic10ItalicFont(&opendyslexic_10_italic);
-EpdFont opendyslexic10BoldItalicFont(&opendyslexic_10_bolditalic);
-EpdFontFamily opendyslexic10FontFamily(&opendyslexic10RegularFont, &opendyslexic10BoldFont, &opendyslexic10ItalicFont,
-                                       &opendyslexic10BoldItalicFont);
-EpdFont opendyslexic12RegularFont(&opendyslexic_12_regular);
-EpdFont opendyslexic12BoldFont(&opendyslexic_12_bold);
-EpdFont opendyslexic12ItalicFont(&opendyslexic_12_italic);
-EpdFont opendyslexic12BoldItalicFont(&opendyslexic_12_bolditalic);
-EpdFontFamily opendyslexic12FontFamily(&opendyslexic12RegularFont, &opendyslexic12BoldFont, &opendyslexic12ItalicFont,
-                                       &opendyslexic12BoldItalicFont);
-EpdFont opendyslexic14RegularFont(&opendyslexic_14_regular);
-EpdFont opendyslexic14BoldFont(&opendyslexic_14_bold);
-EpdFont opendyslexic14ItalicFont(&opendyslexic_14_italic);
-EpdFont opendyslexic14BoldItalicFont(&opendyslexic_14_bolditalic);
-EpdFontFamily opendyslexic14FontFamily(&opendyslexic14RegularFont, &opendyslexic14BoldFont, &opendyslexic14ItalicFont,
-                                       &opendyslexic14BoldItalicFont);
-#endif  // OMIT_FONTS
-
-EpdFont smallFont(&notosans_8_regular);
+EpdFont smallFont(&inter_8_regular);
 EpdFontFamily smallFontFamily(&smallFont);
 
-EpdFont ui10RegularFont(&ubuntu_10_regular);
-EpdFont ui10BoldFont(&ubuntu_10_bold);
+EpdFont ui10RegularFont(&inter_10_regular);
+EpdFont ui10BoldFont(&inter_10_bold);
 EpdFontFamily ui10FontFamily(&ui10RegularFont, &ui10BoldFont);
 
-EpdFont ui12RegularFont(&ubuntu_12_regular);
-EpdFont ui12BoldFont(&ubuntu_12_bold);
+EpdFont ui12RegularFont(&inter_12_regular);
+EpdFont ui12BoldFont(&inter_12_bold);
 EpdFontFamily ui12FontFamily(&ui12RegularFont, &ui12BoldFont);
 
 // measurement of power button press duration calibration value
 unsigned long t1 = 0;
 unsigned long t2 = 0;
+
+// Set when the screenshot combo (Power + Volume Down) fires, so the subsequent
+// power button release does not also trigger a short-press action (e.g. sleep).
+static bool screenshotComboHandled = false;
 
 // Verify power button press duration on wake-up from deep sleep
 // Pre-condition: isWakeupByPowerButton() == true
@@ -140,7 +223,8 @@ void verifyPowerButtonDuration() {
     return;
   }
 
-  // Give the user up to 1000ms to start holding the power button, and must hold for SETTINGS.getPowerButtonDuration()
+  // Give the user up to 1000ms to start holding the power button, and must hold for
+  // SETTINGS.getPowerButtonWakeDuration()
   const auto start = millis();
   bool abort = false;
   // Subtract the current time, because inputManager only starts counting the HeldTime from the first update()
@@ -148,7 +232,7 @@ void verifyPowerButtonDuration() {
   // assuming the button was held until now from millis()==0 (i.e. device start time).
   const uint16_t calibration = start;
   const uint16_t calibratedPressDuration =
-      (calibration < SETTINGS.getPowerButtonDuration()) ? SETTINGS.getPowerButtonDuration() - calibration : 1;
+      (calibration < SETTINGS.getPowerButtonWakeDuration()) ? SETTINGS.getPowerButtonWakeDuration() - calibration : 1;
 
   gpio.update();
   // Needed because inputManager.isPressed() may take up to ~500ms to return the correct state
@@ -182,6 +266,140 @@ void waitForPowerRelease() {
   }
 }
 
+bool isGlobalPowerButtonAction(const CrossPointSettings::SHORT_PWRBTN action) {
+  return isPowerButtonActionAvailableOutsideReader(action);
+}
+
+bool startGlobalSyncProgress() {
+  if (!KOREADER_STORE.hasCredentials()) {
+    activityManager.pushActivity(std::make_unique<KOReaderSettingsActivity>(renderer, mappedInputManager));
+    return true;
+  }
+
+  const std::string epubPath = APP_STATE.openEpubPath;
+  if (epubPath.empty() || !FsHelpers::hasEpubExtension(epubPath) || !Storage.exists(epubPath.c_str())) {
+    LOG_DBG("MAIN", "No syncable EPUB open, opening KOReader settings instead");
+    activityManager.pushActivity(std::make_unique<KOReaderSettingsActivity>(renderer, mappedInputManager));
+    return true;
+  }
+
+  auto epub = std::make_shared<Epub>(epubPath, "/.crosspoint");
+  if (!epub->load(true, SETTINGS.embeddedStyle == 0)) {
+    LOG_ERR("MAIN", "Failed to load EPUB for global sync: %s", epubPath.c_str());
+    activityManager.pushActivity(std::make_unique<KOReaderSettingsActivity>(renderer, mappedInputManager));
+    return true;
+  }
+
+  epub->setupCacheDir();
+
+  int spineIndex = 0;
+  int pageNumber = 0;
+  int totalPagesInSpine = 1;
+  FsFile progressFile;
+  if (Storage.openFileForRead("MAIN", epub->getCachePath() + "/progress.bin", progressFile)) {
+    uint8_t data[6];
+    const int dataSize = progressFile.read(data, sizeof(data));
+    if (dataSize >= 4) {
+      spineIndex = data[0] | (data[1] << 8);
+      pageNumber = data[2] | (data[3] << 8);
+      if (pageNumber == UINT16_MAX) {
+        pageNumber = 0;
+      }
+    }
+    if (dataSize >= 6) {
+      totalPagesInSpine = std::max(1, static_cast<int>(data[4] | (data[5] << 8)));
+    }
+    progressFile.close();
+  }
+
+  if (spineIndex < 0 || spineIndex >= epub->getSpineItemsCount()) {
+    spineIndex = 0;
+  }
+
+  CrossPointPosition localPos = {spineIndex, pageNumber, totalPagesInSpine};
+  KOReaderPosition localKoPos = ProgressMapper::toKOReader(epub, localPos);
+  const int tocIdx = epub->getTocIndexForSpineIndex(spineIndex);
+  std::string localChapterName = (tocIdx >= 0) ? epub->getTocItem(tocIdx).title : "";
+
+  activityManager.pushActivity(
+      std::make_unique<KOReaderSyncActivity>(renderer, mappedInputManager, epubPath, spineIndex, pageNumber,
+                                             totalPagesInSpine, std::move(localKoPos), std::move(localChapterName)));
+  return true;
+}
+
+CrossPointSettings::SHORT_PWRBTN getPowerButtonAction() {
+  static bool longPowerButtonHandled = false;
+
+  if (mappedInputManager.wasReleased(MappedInputManager::Button::Power)) {
+    if (longPowerButtonHandled) {
+      longPowerButtonHandled = false;
+      screenshotComboHandled = false;
+      return CrossPointSettings::SHORT_PWRBTN::IGNORE;
+    }
+
+    if (screenshotComboHandled) {
+      screenshotComboHandled = false;
+      return CrossPointSettings::SHORT_PWRBTN::IGNORE;
+    }
+
+    return mappedInputManager.getHeldTime() < SETTINGS.getPowerButtonLongPressDuration()
+               ? static_cast<CrossPointSettings::SHORT_PWRBTN>(SETTINGS.shortPwrBtn)
+               : static_cast<CrossPointSettings::SHORT_PWRBTN>(SETTINGS.longPwrBtn);
+  }
+
+  if (longPowerButtonHandled || !mappedInputManager.isPressed(MappedInputManager::Button::Power) ||
+      mappedInputManager.getHeldTime() < SETTINGS.getPowerButtonLongPressDuration()) {
+    return CrossPointSettings::SHORT_PWRBTN::IGNORE;
+  }
+
+  const auto action = static_cast<CrossPointSettings::SHORT_PWRBTN>(SETTINGS.longPwrBtn);
+  if (!isGlobalPowerButtonAction(action)) {
+    return CrossPointSettings::SHORT_PWRBTN::IGNORE;
+  }
+
+  longPowerButtonHandled = true;
+  return action;
+}
+
+bool handleGlobalPowerButtonAction(const CrossPointSettings::SHORT_PWRBTN action) {
+  switch (action) {
+    case CrossPointSettings::SHORT_PWRBTN::SLEEP:
+      enterDeepSleep();
+      return true;
+    case CrossPointSettings::SHORT_PWRBTN::FORCE_REFRESH: {
+      LOG_DBG("MAIN", "Manual screen refresh triggered");
+      RenderLock lock;
+      renderer.displayBuffer(HalDisplay::HALF_REFRESH);
+      return true;
+    }
+    case CrossPointSettings::SHORT_PWRBTN::SCREENSHOT: {
+      if (activityManager.canSnapshotForSleepOverlay()) {
+        return false;
+      }
+      RenderLock lock;
+      ScreenshotUtil::takeScreenshot(renderer);
+      return true;
+    }
+    case CrossPointSettings::SHORT_PWRBTN::SYNC_PROGRESS:
+      if (activityManager.canSnapshotForSleepOverlay()) {
+        return false;
+      }
+      return startGlobalSyncProgress();
+    case CrossPointSettings::SHORT_PWRBTN::FILE_TRANSFER:
+      if (activityManager.canSnapshotForSleepOverlay()) {
+        return false;
+      }
+      activityManager.goToFileTransfer();
+      return true;
+    default:
+      return false;
+  }
+}
+
+namespace {
+constexpr uint16_t POST_SLEEP_SCREEN_SETTLE_MS = 500;
+}
+
 // Enter deep sleep mode
 void enterDeepSleep() {
   HalPowerManager::Lock powerLock;  // Ensure we are at normal CPU frequency for sleep preparation
@@ -189,6 +407,7 @@ void enterDeepSleep() {
   APP_STATE.saveToFile();
 
   activityManager.goToSleep();
+  delay(POST_SLEEP_SCREEN_SETTLE_MS);
 
   halTiltSensor.deepSleep();
   display.deepSleep();
@@ -211,21 +430,60 @@ void setupDisplayAndFonts() {
   }
   fontCacheManager.setFontDecompressor(&fontDecompressor);
   renderer.setFontCacheManager(&fontCacheManager);
-  renderer.insertFont(NOTOSERIF_14_FONT_ID, notoserif14FontFamily);
-#ifndef OMIT_FONTS
-  renderer.insertFont(NOTOSERIF_12_FONT_ID, notoserif12FontFamily);
-  renderer.insertFont(NOTOSERIF_16_FONT_ID, notoserif16FontFamily);
-  renderer.insertFont(NOTOSERIF_18_FONT_ID, notoserif18FontFamily);
 
-  renderer.insertFont(NOTOSANS_12_FONT_ID, notosans12FontFamily);
-  renderer.insertFont(NOTOSANS_14_FONT_ID, notosans14FontFamily);
-  renderer.insertFont(NOTOSANS_16_FONT_ID, notosans16FontFamily);
-  renderer.insertFont(NOTOSANS_18_FONT_ID, notosans18FontFamily);
-  renderer.insertFont(OPENDYSLEXIC_8_FONT_ID, opendyslexic8FontFamily);
-  renderer.insertFont(OPENDYSLEXIC_10_FONT_ID, opendyslexic10FontFamily);
-  renderer.insertFont(OPENDYSLEXIC_12_FONT_ID, opendyslexic12FontFamily);
-  renderer.insertFont(OPENDYSLEXIC_14_FONT_ID, opendyslexic14FontFamily);
-#endif  // OMIT_FONTS
+#ifndef OMIT_TEENSY_FONT
+  renderer.insertFont(CHAREINK_8_FONT_ID, charein8FontFamily);
+#endif
+#ifndef OMIT_TINY_FONT
+  renderer.insertFont(CHAREINK_10_FONT_ID, charein10FontFamily);
+#endif
+#ifndef OMIT_SMALL_FONT
+  renderer.insertFont(CHAREINK_12_FONT_ID, charein12FontFamily);
+#endif
+  renderer.insertFont(CHAREINK_14_FONT_ID, charein14FontFamily);
+  renderer.insertFont(CHAREINK_16_FONT_ID, charein16FontFamily);
+#ifndef OMIT_XLARGE_FONT
+  renderer.insertFont(CHAREINK_18_FONT_ID, charein18FontFamily);
+#endif
+#ifndef OMIT_HUGE_FONT
+  renderer.insertFont(CHAREINK_20_FONT_ID, charein20FontFamily);
+#endif
+
+#ifndef OMIT_TEENSY_FONT
+  renderer.insertFont(LEXENDDECA_8_FONT_ID, lexenddeca8FontFamily);
+#endif
+#ifndef OMIT_TINY_FONT
+  renderer.insertFont(LEXENDDECA_10_FONT_ID, lexenddeca10FontFamily);
+#endif
+#ifndef OMIT_SMALL_FONT
+  renderer.insertFont(LEXENDDECA_12_FONT_ID, lexenddeca12FontFamily);
+#endif
+  renderer.insertFont(LEXENDDECA_14_FONT_ID, lexenddeca14FontFamily);
+  renderer.insertFont(LEXENDDECA_16_FONT_ID, lexenddeca16FontFamily);
+#ifndef OMIT_XLARGE_FONT
+  renderer.insertFont(LEXENDDECA_18_FONT_ID, lexenddeca18FontFamily);
+#endif
+#ifndef OMIT_HUGE_FONT
+  renderer.insertFont(LEXENDDECA_20_FONT_ID, lexenddeca20FontFamily);
+#endif
+
+#ifndef OMIT_TEENSY_FONT
+  renderer.insertFont(BITTER_8_FONT_ID, bitter8FontFamily);
+#endif
+#ifndef OMIT_TINY_FONT
+  renderer.insertFont(BITTER_10_FONT_ID, bitter10FontFamily);
+#endif
+#ifndef OMIT_SMALL_FONT
+  renderer.insertFont(BITTER_12_FONT_ID, bitter12FontFamily);
+#endif
+  renderer.insertFont(BITTER_14_FONT_ID, bitter14FontFamily);
+  renderer.insertFont(BITTER_16_FONT_ID, bitter16FontFamily);
+#ifndef OMIT_XLARGE_FONT
+  renderer.insertFont(BITTER_18_FONT_ID, bitter18FontFamily);
+#endif
+#ifndef OMIT_HUGE_FONT
+  renderer.insertFont(BITTER_20_FONT_ID, bitter20FontFamily);
+#endif
   renderer.insertFont(UI_10_FONT_ID, ui10FontFamily);
   renderer.insertFont(UI_12_FONT_ID, ui12FontFamily);
   renderer.insertFont(SMALL_FONT_ID, smallFontFamily);
@@ -278,7 +536,7 @@ void setup() {
   switch (wakeupReason) {
     case HalGPIO::WakeupReason::PowerButton:
       LOG_DBG("MAIN", "Verifying power button press duration");
-      gpio.verifyPowerButtonWakeup(SETTINGS.getPowerButtonDuration(),
+      gpio.verifyPowerButtonWakeup(SETTINGS.getPowerButtonWakeDuration(),
                                    SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::SLEEP);
       break;
     case HalGPIO::WakeupReason::AfterUSBPower:
@@ -394,6 +652,8 @@ void loop() {
     screenshotComboActive = true;
     if (screenshotButtonsReleased) {
       screenshotButtonsReleased = false;
+      screenshotComboHandled = true;
+      mappedInputManager.suppressNextPowerConfirmRelease();
       {
         RenderLock lock;
         ScreenshotUtil::takeScreenshot(renderer);
@@ -417,25 +677,15 @@ void loop() {
     LOG_DBG("SLP", "Auto-sleep triggered after %lu ms of inactivity", sleepTimeoutMs);
     enterDeepSleep();
     // This should never be hit as `enterDeepSleep` calls esp_deep_sleep_start
+    // In the simulator, deep sleep is a no-op and returns — reset the timer so
+    // the main loop does not immediately re-trigger auto-sleep.
+    lastActivityTime = millis();
     return;
   }
 
-  if (gpio.isPressed(HalGPIO::BTN_POWER) && gpio.getHeldTime() > SETTINGS.getPowerButtonDuration()) {
-    // If the screenshot combination is potentially being pressed, don't sleep
-    if (gpio.isPressed(HalGPIO::BTN_DOWN)) {
-      return;
-    }
-    enterDeepSleep();
-    // This should never be hit as `enterDeepSleep` calls esp_deep_sleep_start
+  if (handleGlobalPowerButtonAction(getPowerButtonAction())) {
+    lastActivityTime = millis();
     return;
-  }
-
-  // Refresh screen when power button is short-pressed with FORCE_REFRESH setting.
-  if (SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::FORCE_REFRESH &&
-      mappedInputManager.wasReleased(MappedInputManager::Button::Power)) {
-    LOG_DBG("MAIN", "Manual screen refresh triggered");
-    RenderLock lock;
-    renderer.displayBuffer(HalDisplay::HALF_REFRESH);
   }
 
   // Refresh the battery icon when USB is plugged or unplugged.
@@ -453,6 +703,7 @@ void loop() {
     maxLoopDuration = loopDuration;
     if (maxLoopDuration > 50) {
       LOG_DBG("LOOP", "New max loop duration: %lu ms (activity: %lu ms)", maxLoopDuration, activityDuration);
+      (void)activityDuration;
     }
   }
 

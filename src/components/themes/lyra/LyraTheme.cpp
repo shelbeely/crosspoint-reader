@@ -6,14 +6,18 @@
 #include <HalStorage.h>
 #include <I18n.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <string>
 #include <vector>
 
 #include "RecentBooksStore.h"
+#include "activities/reader/BookReadingStats.h"
 #include "components/UITheme.h"
 #include "components/icons/book.h"
 #include "components/icons/book24.h"
+#include "components/icons/chart.h"
 #include "components/icons/cover.h"
 #include "components/icons/file24.h"
 #include "components/icons/folder.h"
@@ -63,6 +67,8 @@ const uint8_t* iconForName(UIIcon icon, int size) {
         return FolderIcon;
       case UIIcon::Book:
         return BookIcon;
+      case UIIcon::Chart:
+        return ChartIcon;
       case UIIcon::Recent:
         return RecentIcon;
       case UIIcon::Settings:
@@ -209,10 +215,12 @@ void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
                          const std::function<std::string(int index)>& rowSubtitle,
                          const std::function<UIIcon(int index)>& rowIcon,
                          const std::function<std::string(int index)>& rowValue, bool highlightValue,
-                         const std::function<bool(int index)>& rowDimmed) const {
+                         const std::function<bool(int index)>& rowDimmed,
+                         const std::function<bool(int index)>& isHeader) const {
   int rowHeight =
       (rowSubtitle != nullptr) ? LyraMetrics::values.listWithSubtitleRowHeight : LyraMetrics::values.listRowHeight;
   int pageItems = rect.height / rowHeight;
+  constexpr int sectionHeaderTopPadding = 20;
 
   const int totalPages = (itemCount + pageItems - 1) / pageItems;
   if (totalPages > 1) {
@@ -228,12 +236,18 @@ void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
                       scrollBarHeight, true);
   }
 
-  // Draw selection
+  // Draw selection (skip header rows)
   int contentWidth =
       rect.width -
       (totalPages > 1 ? (LyraMetrics::values.scrollBarWidth + LyraMetrics::values.scrollBarRightOffset) : 1);
-  if (selectedIndex >= 0) {
-    renderer.fillRoundedRect(LyraMetrics::values.contentSidePadding, rect.y + selectedIndex % pageItems * rowHeight,
+  const auto pageStartIndex = selectedIndex / pageItems * pageItems;
+  if (selectedIndex >= 0 && !(isHeader && isHeader(selectedIndex))) {
+    int selY = rect.y;
+    for (int j = pageStartIndex; j < selectedIndex; j++) {
+      selY += rowHeight;
+      if (isHeader && isHeader(j + 1)) selY += sectionHeaderTopPadding;
+    }
+    renderer.fillRoundedRect(rect.x + LyraMetrics::values.contentSidePadding, selY,
                              contentWidth - LyraMetrics::values.contentSidePadding * 2, rowHeight, cornerRadius,
                              Color::LightGray);
   }
@@ -247,11 +261,27 @@ void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
     textWidth -= iconSize + hPaddingInSelection;
   }
 
-  // Draw all items
-  const auto pageStartIndex = selectedIndex / pageItems * pageItems;
+  // Draw all items using a running Y to accommodate variable-height section headers
   int iconY = (rowSubtitle != nullptr) ? 16 : 10;
+  int currentY = rect.y;
   for (int i = pageStartIndex; i < itemCount && i < pageStartIndex + pageItems; i++) {
-    const int itemY = rect.y + (i % pageItems) * rowHeight;
+    if (i > pageStartIndex && isHeader && isHeader(i)) currentY += sectionHeaderTopPadding;
+    const int itemY = currentY;
+    currentY += rowHeight;
+
+    if (isHeader && isHeader(i)) {
+      // Section header: bold uppercase label + divider line below
+      std::string label = rowTitle(i);
+      std::transform(label.begin(), label.end(), label.begin(),
+                     [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+      auto truncated = renderer.truncatedText(
+          UI_10_FONT_ID, label.c_str(), contentWidth - LyraMetrics::values.contentSidePadding * 2, EpdFontFamily::BOLD);
+      renderer.drawText(UI_10_FONT_ID, rect.x + LyraMetrics::values.contentSidePadding, itemY + 7, truncated.c_str(),
+                        true, EpdFontFamily::BOLD);
+      renderer.drawLine(rect.x, itemY + rowHeight - 1, rect.x + contentWidth, itemY + rowHeight - 1, true);
+      continue;
+    }
+
     int rowTextWidth = textWidth;
 
     // Draw name
@@ -297,7 +327,7 @@ void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
     if (!valueText.empty()) {
       if (i == selectedIndex && highlightValue) {
         renderer.fillRoundedRect(
-            contentWidth - LyraMetrics::values.contentSidePadding - hPaddingInSelection - valueWidth, itemY,
+            rect.x + contentWidth - LyraMetrics::values.contentSidePadding - hPaddingInSelection - valueWidth, itemY,
             valueWidth + hPaddingInSelection, rowHeight, cornerRadius, Color::Black);
       }
 
@@ -401,7 +431,8 @@ void LyraTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* top
 
 void LyraTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
                                     const int selectorIndex, bool& coverRendered, bool& coverBufferStored,
-                                    bool& bufferRestored, std::function<bool()> storeCoverBuffer) const {
+                                    bool& bufferRestored, std::function<bool()> storeCoverBuffer,
+                                    const BookReadingStats* stats, float progressPercent) const {
   const int tileWidth = rect.width - 2 * LyraMetrics::values.contentSidePadding;
   const int tileHeight = rect.height;
   const int tileY = rect.y;
@@ -477,9 +508,15 @@ void LyraTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std:
 
     auto author = renderer.truncatedText(UI_10_FONT_ID, book.author.c_str(), textWidth);
     const int titleLineHeight = renderer.getLineHeight(UI_12_FONT_ID);
+    const int statsLineHeight = renderer.getLineHeight(SMALL_FONT_ID);
+    const int progressLineHeight = renderer.getLineHeight(UI_10_FONT_ID);
     const int titleBlockHeight = titleLineHeight * static_cast<int>(titleLines.size());
     const int authorHeight = book.author.empty() ? 0 : (renderer.getLineHeight(UI_10_FONT_ID) * 3 / 2);
-    const int totalBlockHeight = titleBlockHeight + authorHeight;
+    const bool hasStats = (stats != nullptr && stats->sessionCount > 0);
+    const bool hasProgress = progressPercent >= 0.0f;
+    const int statsBlockHeight = hasStats ? (statsLineHeight * 2 + 6) : 0;
+    const int progressBlockHeight = hasProgress ? (progressLineHeight + 12) : 0;
+    const int totalBlockHeight = titleBlockHeight + authorHeight + statsBlockHeight + progressBlockHeight;
     int titleY = tileY + tileHeight / 2 - totalBlockHeight / 2;
     const int textX = tileX + hPaddingInSelection + coverWidth + LyraMetrics::values.verticalSpacing;
     for (const auto& line : titleLines) {
@@ -489,6 +526,36 @@ void LyraTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std:
     if (!book.author.empty()) {
       titleY += renderer.getLineHeight(UI_10_FONT_ID) / 2;
       renderer.drawText(UI_10_FONT_ID, textX, titleY, author.c_str(), true);
+      titleY += renderer.getLineHeight(UI_10_FONT_ID);
+    }
+    if (hasStats) {
+      titleY += 6;
+      char buf[48];
+      char statLine[64];
+      BookReadingStats::formatDuration(stats->totalReadingSeconds, buf, sizeof(buf));
+      snprintf(statLine, sizeof(statLine), "%s%s", tr(STR_STATS_TOTAL_TIME), buf);
+      renderer.drawText(SMALL_FONT_ID, textX, titleY, statLine, true);
+      titleY += statsLineHeight;
+      BookReadingStats::formatDuration(stats->totalReadingSeconds / stats->sessionCount, buf, sizeof(buf));
+      snprintf(statLine, sizeof(statLine), "%s%s", tr(STR_STATS_AVG_SESSION), buf);
+      renderer.drawText(SMALL_FONT_ID, textX, titleY, statLine, true);
+      titleY += statsLineHeight;
+    }
+    if (hasProgress) {
+      titleY += 8;
+      constexpr int progressBarHeight = 4;
+      const int progressBarWidth = textWidth;
+      const int progressBarY = titleY + progressLineHeight + 2;
+      const int filledWidth =
+          std::clamp(static_cast<int>((progressPercent / 100.0f) * progressBarWidth), 0, progressBarWidth);
+      char progressLabel[16];
+      snprintf(progressLabel, sizeof(progressLabel), "%.0f%%", progressPercent);
+      renderer.drawText(UI_10_FONT_ID, textX, titleY, progressLabel, true, EpdFontFamily::BOLD);
+      renderer.drawRect(textX, progressBarY, progressBarWidth, progressBarHeight, true);
+      if (filledWidth > 0) {
+        renderer.fillRect(textX + 1, progressBarY + 1, std::max(0, filledWidth - 2),
+                          std::max(0, progressBarHeight - 2));
+      }
     }
   } else {
     drawEmptyRecents(renderer, rect);
@@ -506,11 +573,35 @@ void LyraTheme::drawEmptyRecents(const GfxRenderer& renderer, const Rect rect) c
 void LyraTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
                                const std::function<std::string(int index)>& buttonLabel,
                                const std::function<UIIcon(int index)>& rowIcon) const {
-  for (int i = 0; i < buttonCount; ++i) {
-    int tileWidth = rect.width - LyraMetrics::values.contentSidePadding * 2;
-    Rect tileRect = Rect{rect.x + LyraMetrics::values.contentSidePadding,
-                         rect.y + i * (LyraMetrics::values.menuRowHeight + LyraMetrics::values.menuSpacing), tileWidth,
-                         LyraMetrics::values.menuRowHeight};
+  const auto& menuMetrics = UITheme::getInstance().getMetrics();
+
+  constexpr int maxVisibleItems = 7;
+  const int pageItems = maxVisibleItems;
+  const int totalPages = (buttonCount + pageItems - 1) / pageItems;
+
+  if (totalPages > 1) {
+    const int scrollAreaHeight =
+        maxVisibleItems * (menuMetrics.menuRowHeight + menuMetrics.menuSpacing) - menuMetrics.menuSpacing;
+    const int scrollBarHeight = (scrollAreaHeight * pageItems) / buttonCount;
+    const int currentPage = selectedIndex / pageItems;
+    const int scrollBarY = rect.y + ((scrollAreaHeight - scrollBarHeight) * currentPage) / (totalPages - 1);
+    const int scrollBarX = rect.x + rect.width - LyraMetrics::values.scrollBarRightOffset;
+    renderer.drawLine(scrollBarX, rect.y, scrollBarX, rect.y + scrollAreaHeight, true);
+    renderer.fillRect(scrollBarX - LyraMetrics::values.scrollBarWidth, scrollBarY, LyraMetrics::values.scrollBarWidth,
+                      scrollBarHeight, true);
+  }
+
+  const int pageStartIndex = (selectedIndex / pageItems) * pageItems;
+
+  for (int i = pageStartIndex; i < buttonCount && i < pageStartIndex + pageItems; ++i) {
+    const int displayIndex = i - pageStartIndex;
+    int tileWidth = rect.width - menuMetrics.contentSidePadding * 2;
+    if (totalPages > 1) {
+      tileWidth -= (LyraMetrics::values.scrollBarWidth + LyraMetrics::values.scrollBarRightOffset);
+    }
+    Rect tileRect = Rect{rect.x + menuMetrics.contentSidePadding,
+                         rect.y + displayIndex * (menuMetrics.menuRowHeight + menuMetrics.menuSpacing), tileWidth,
+                         menuMetrics.menuRowHeight};
 
     const bool selected = selectedIndex == i;
 
@@ -522,14 +613,31 @@ void LyraTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount
     const char* label = labelStr.c_str();
     int textX = tileRect.x + 16;
     const int lineHeight = renderer.getLineHeight(UI_12_FONT_ID);
-    const int textY = tileRect.y + (LyraMetrics::values.menuRowHeight - lineHeight) / 2;
+    const int textY = tileRect.y + (menuMetrics.menuRowHeight - lineHeight) / 2;
 
     if (rowIcon != nullptr) {
       UIIcon icon = rowIcon(i);
-      const uint8_t* iconBitmap = iconForName(icon, mainMenuIconSize);
-      if (iconBitmap != nullptr) {
-        renderer.drawIcon(iconBitmap, textX, textY + 3, mainMenuIconSize, mainMenuIconSize);
+      if (icon == UIIcon::BookmarkIcon) {
+        // Draw a small bookmark ribbon icon to match the status bar ribbon.
+        const int ribbonWidth = 16;
+        const int ribbonHeight = 22;
+        const int notchSize = 6;
+        // Center the ribbon horizontally within the mainMenuIconSize box
+        const int iconX = textX + (mainMenuIconSize - ribbonWidth) / 2;
+        const int iconY = textY + 4;
+        const int centerX = iconX + ribbonWidth / 2;
+
+        const int polyX[5] = {iconX, iconX + ribbonWidth, iconX + ribbonWidth, centerX, iconX};
+        const int polyY[5] = {iconY, iconY, iconY + ribbonHeight, iconY + ribbonHeight - notchSize,
+                              iconY + ribbonHeight};
+        renderer.fillPolygon(polyX, polyY, 5, true);
         textX += mainMenuIconSize + hPaddingInSelection + 2;
+      } else {
+        const uint8_t* iconBitmap = iconForName(icon, mainMenuIconSize);
+        if (iconBitmap != nullptr) {
+          renderer.drawIcon(iconBitmap, textX, textY + 3, mainMenuIconSize, mainMenuIconSize);
+          textX += mainMenuIconSize + hPaddingInSelection + 2;
+        }
       }
     }
 

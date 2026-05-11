@@ -15,7 +15,14 @@ class MappedInputManager {
 
   explicit MappedInputManager(HalGPIO& gpio) : gpio(gpio) {}
 
+  // Enable/disable reader-specific front button mapping.
+  // Call with true in reader activity onEnter(), false in onExit().
+  void setReaderMode(bool enabled) { readerMode = enabled; }
+  void setPowerAsConfirmInReaderMode(bool enabled) { powerAsConfirmInReaderMode = enabled; }
+
   void update() const { gpio.update(); }
+  void suppressNextBackRelease() { suppressBackRelease = true; }
+  void suppressNextPowerConfirmRelease() { suppressPowerConfirmRelease = true; }
   bool wasPressed(Button button) const;
   bool wasReleased(Button button) const;
   bool isPressed(Button button) const;
@@ -28,6 +35,12 @@ class MappedInputManager {
 
  private:
   HalGPIO& gpio;
+  bool readerMode = false;
+  bool powerAsConfirmInReaderMode = false;
+  mutable bool suppressBackRelease = false;
+  mutable bool suppressPowerConfirmRelease = false;
 
   bool mapButton(Button button, bool (HalGPIO::*fn)(uint8_t) const) const;
+  bool shouldUsePowerAsConfirmFallback() const;
+  bool shouldMirrorPowerAsConfirmHold() const;
 };

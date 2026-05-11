@@ -2,10 +2,16 @@
 #include <Epub.h>
 #include <Epub/FootnoteEntry.h>
 #include <Epub/Section.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include <optional>
+#include <string>
 
+#include "BookReadingStats.h"
+#include "BookmarkStore.h"
 #include "EpubReaderMenuActivity.h"
+#include "GlobalReadingStats.h"
 #include "activities/Activity.h"
 
 class EpubReaderActivity final : public Activity {
@@ -22,6 +28,9 @@ class EpubReaderActivity final : public Activity {
   int cachedChapterTotalPageCount = 0;
   unsigned long lastPageTurnTime = 0UL;
   unsigned long pageTurnDuration = 0UL;
+  BookReadingStats stats;
+  GlobalReadingStats globalStats;
+  unsigned long sessionStartMs = 0UL;
   // Signals that the next render should reposition within the newly loaded section
   // based on a cross-book percentage jump.
   bool pendingPercentJump = false;
@@ -31,6 +40,37 @@ class EpubReaderActivity final : public Activity {
   bool pendingSyncSaveError = false;
   bool skipNextButtonCheck = false;  // Skip button processing for one frame after subactivity exit
   bool automaticPageTurnActive = false;
+  uint8_t currentPageTurnOption = 0;
+  bool longPressMenuHandled = false;
+  bool longPowerButtonHandled = false;
+  bool sideButtonLongPressHandled = false;
+  int pageLoadRetryCount = 0;
+  enum class BookmarkFeedbackType : uint8_t {
+    Added,
+    Removed,
+    LimitReached,
+  };
+  bool pendingBookmarkFeedback = false;
+  BookmarkFeedbackType bookmarkFeedbackType = BookmarkFeedbackType::Added;
+  unsigned long bookmarkFeedbackShowTime = 0UL;
+  bool pendingCompletedFeedback = false;
+  bool completedFeedbackIsFinished = false;
+  unsigned long completedFeedbackShowTime = 0UL;
+  int completionTriggerSpineIndex = -1;
+  float completionTriggerSpineProgress = 1.0f;
+  bool completionPromptQueued = false;
+  bool completionPromptShown = false;
+  bool completionTriggerSeenBelow = false;
+  bool lastAtOrPastCompletionTrigger = false;
+  bool pendingReadFolderMove = false;
+
+  struct ReadFolderMoveParams {
+    std::string epubPath;
+    std::string dstEpubPath;
+    std::string cachePath;
+    std::string title;
+  };
+  static void readFolderMoveTask(void* arg);
 
   // Footnote support
   std::vector<FootnoteEntry> currentPageFootnotes;
@@ -47,12 +87,26 @@ class EpubReaderActivity final : public Activity {
   void renderStatusBar() const;
   void silentIndexNextChapterIfNeeded(uint16_t viewportWidth, uint16_t viewportHeight);
   bool saveProgress(int spineIndex, int currentPage, int pageCount);
+  void openFileTransfer();
   // Jump to a percentage of the book (0-100), mapping it to spine and page.
   void jumpToPercent(int percent);
+  void reindexCurrentSection();
+  void executeReaderQuickAction(CrossPointSettings::LONG_PRESS_MENU_ACTION action);
+  bool consumeLongPowerButtonRelease();
+  bool consumeLongPowerButtonHold();
+  bool executeShortPowerButtonAction();
+  bool executeLongPowerButtonAction();
   void onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction action);
   void applyOrientation(uint8_t orientation);
+  void executeLongPressMenuAction();
   void toggleAutoPageTurn(uint8_t selectedPageTurnOption);
   void pageTurn(bool isForwardTurn);
+  float getCurrentBookProgressPercent() const;
+  void initializeCompletionPromptTrigger();
+  bool isAtOrPastCompletionTrigger() const;
+  void queueCompletionPromptIfNeeded();
+  void setBookCompleted(bool isCompleted);
+  void showCompletedFeedback(bool isCompleted);
 
   // Footnote navigation
   void navigateToHref(const std::string& href, bool savePosition = false);
@@ -65,6 +119,13 @@ class EpubReaderActivity final : public Activity {
   void onExit() override;
   void loop() override;
   void render(RenderLock&& lock) override;
+  bool preventAutoSleep() override { return automaticPageTurnActive; }
   bool isReaderActivity() const override { return true; }
+  bool canSnapshotForSleepOverlay() const override { return true; }
+
+  // Renders the last saved page to the frame buffer without flushing to display.
+  // Used by SleepActivity to prepare the background for the overlay sleep mode.
+  // Returns false if the page cannot be loaded (missing cache / file error).
+  static bool drawCurrentPageToBuffer(const std::string& filePath, GfxRenderer& renderer);
   ScreenshotInfo getScreenshotInfo() const override;
 };

@@ -13,8 +13,17 @@
 #include "MappedInputManager.h"
 #include "util/ScreenshotInfo.h"
 
+#ifndef portMUX_INITIALIZER_UNLOCKED
+struct portMUX_TYPE {};
+#define portMUX_INITIALIZER_UNLOCKED \
+  {                                  \
+  }
+#endif
+
 class Activity;    // forward declaration
 class RenderLock;  // forward declaration
+
+enum class RequestUpdateResult { Rendered, Rejected };
 
 /**
  * ActivityManager
@@ -54,6 +63,7 @@ class ActivityManager {
   // Set by requestUpdateAndWait(); read and cleared by the render task after render completes.
   // Note: only one waiting task is supported at a time
   TaskHandle_t waitingTaskHandle = nullptr;
+  portMUX_TYPE renderStateMux = portMUX_INITIALIZER_UNLOCKED;
 
   // Mutex to protect rendering operations from race conditions
   // Must only be used via RenderLock
@@ -78,12 +88,12 @@ class ActivityManager {
   void replaceActivity(std::unique_ptr<Activity>&& newActivity);
 
   // goTo... functions are convenient wrapper for replaceActivity()
-  void goToFileTransfer();
+  void goToFileTransfer(std::string returnBookPath = {});
   void goToSettings();
   void goToFileBrowser(std::string path = {});
   void goToRecentBooks();
   void goToBrowser();
-  void goToReader(std::string path);
+  void goToReader(std::string path, bool suppressBackRelease = false);
   void goToSleep();
   void goToBoot();
   void goToFullScreenMessage(std::string message, EpdFontFamily::Style style = EpdFontFamily::REGULAR);
@@ -99,6 +109,7 @@ class ActivityManager {
 
   bool preventAutoSleep() const;
   bool isReaderActivity() const;
+  bool canSnapshotForSleepOverlay() const;
   bool skipLoopDelay() const;
   ScreenshotInfo getScreenshotInfo() const;
 
@@ -107,8 +118,9 @@ class ActivityManager {
   void requestUpdate(bool immediate = false);
 
   // Trigger a render and block until it completes.
-  // Must NOT be called from the render task or while holding a RenderLock.
-  void requestUpdateAndWait();
+  // Returns Rejected when a synchronous render would be unsafe, such as from the render task,
+  // while another task is already waiting, or while holding a RenderLock.
+  RequestUpdateResult requestUpdateAndWait();
 };
 
 extern ActivityManager activityManager;  // singleton, to be defined in main.cpp

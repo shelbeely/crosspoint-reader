@@ -1,5 +1,6 @@
 #include "WebDAVHandler.h"
 
+#include <Arduino.h>
 #include <Epub.h>
 #include <FsHelpers.h>
 #include <HalStorage.h>
@@ -224,13 +225,12 @@ void WebDAVHandler::handlePropfind(WebServer& s) {
     char name[500];
     while (file) {
       file.getName(name, sizeof(name));
-      String fileName(name);
 
       // Skip hidden/protected items
-      bool shouldHide = fileName.startsWith(".");
+      bool shouldHide = (name[0] == '.');
       if (!shouldHide) {
         for (const auto* item : HIDDEN_ITEMS) {
-          if (fileName.equals(item)) {
+          if (strcmp(name, item) == 0) {
             shouldHide = true;
             break;
           }
@@ -240,7 +240,7 @@ void WebDAVHandler::handlePropfind(WebServer& s) {
       if (!shouldHide) {
         String childPath = path;
         if (!childPath.endsWith("/")) childPath += "/";
-        childPath += fileName;
+        childPath += name;
 
         if (file.isDirectory()) {
           sendPropEntry(s, childPath, true, 0, FIXED_DATE);

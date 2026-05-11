@@ -142,7 +142,17 @@ void KOReaderSyncActivity::performSync() {
     RenderLock lock(*this);
     statusMessage = tr(STR_FETCH_PROGRESS);
   }
-  requestUpdateAndWait();
+  if (requestUpdateAndWait() != RequestUpdateResult::Rendered) {
+    LOG_ERR("KOSync", "Fetch progress screen could not be rendered synchronously; aborting sync");
+    wifiOff();
+    {
+      RenderLock lock(*this);
+      state = SYNC_FAILED;
+      statusMessage = "Render update failed";
+    }
+    requestUpdate(true);
+    return;
+  }
 
   // Fetch remote progress
   const auto result = KOReaderSyncClient::getProgress(documentHash, remoteProgress);
@@ -259,7 +269,17 @@ void KOReaderSyncActivity::performUpload() {
     state = UPLOADING;
     statusMessage = tr(STR_UPLOAD_PROGRESS);
   }
-  requestUpdateAndWait();
+  if (requestUpdateAndWait() != RequestUpdateResult::Rendered) {
+    LOG_ERR("KOSync", "Upload progress screen could not be rendered synchronously; aborting upload");
+    wifiOff();
+    {
+      RenderLock lock(*this);
+      state = SYNC_FAILED;
+      statusMessage = "Render update failed";
+    }
+    requestUpdate(true);
+    return;
+  }
 
   // localProgress was pre-computed in EpubReaderActivity before the Epub was released.
   KOReaderProgress progress;

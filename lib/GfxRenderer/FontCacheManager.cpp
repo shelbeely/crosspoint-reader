@@ -33,7 +33,10 @@ void FontCacheManager::prewarmCache(int fontId, const char* utf8Text, uint8_t st
   // Standard compressed font prewarm path: loop over all requested styles
   if (!fontDecompressor_ || fontMap_.count(fontId) == 0) return;
 
-  for (uint8_t i = 0; i < 4; i++) {
+  // Iterate in reverse so REGULAR (index 0) is prewarmed last and stays in the page buffer.
+  // Each prewarmCache call overwrites the previous page buffer, so whichever style runs last
+  // wins. With bionic reading, most rendered text is REGULAR, making it the more valuable cache.
+  for (int8_t i = 3; i >= 0; i--) {
     if (!(styleMask & (1 << i))) continue;
     auto style = static_cast<EpdFontFamily::Style>(i);
     const EpdFontData* data = fontMap_.at(fontId).getData(style);
@@ -99,9 +102,9 @@ void FontCacheManager::PrewarmScope::endScanAndPrewarm() {
 
   manager_->prewarmCache(manager_->scanFontId_, manager_->scanText_.c_str(), styleMask);
 
-  // Free scan string memory
+  // Keep the grown capacity around so the next page can reuse it without
+  // another allocate-grow-shrink cycle.
   manager_->scanText_.clear();
-  manager_->scanText_.shrink_to_fit();
 }
 
 FontCacheManager::PrewarmScope::~PrewarmScope() {

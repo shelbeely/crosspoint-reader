@@ -159,6 +159,8 @@ static void feedChunked(ReleaseJsonParser& p, const char* json, size_t chunkSize
   }
 }
 
+static bool isTinyFirmwareAsset(const char* assetName) { return strcmp(assetName, "firmware-tiny-v2.4.1.bin") == 0; }
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -305,6 +307,30 @@ void testFieldOrderNameFirst() {
   ASSERT_TRUE(p.foundFirmware());
   ASSERT_STREQ(p.getFirmwareUrl(), "https://example.com/fw3.bin");
   ASSERT_EQ(p.getFirmwareSize(), 4444u);
+
+  printf("  passed\n");
+  PASS();
+}
+
+void testCustomAssetMatcher() {
+  printf("testCustomAssetMatcher...\n");
+
+  const char* json = R"({
+      "tag_name": "v2.4.1",
+      "assets": [
+        {"name": "firmware-xlarge-v2.4.1.bin", "browser_download_url": "https://example.com/xlarge.bin", "size": 1234},
+        {"name": "firmware-tiny-v2.4.1.bin", "browser_download_url": "https://example.com/tiny.bin", "size": 4321}
+      ]
+    })";
+
+  ReleaseJsonParser p(isTinyFirmwareAsset);
+  p.feed(json, strlen(json));
+
+  ASSERT_TRUE(p.foundTag());
+  ASSERT_TRUE(p.foundFirmware());
+  ASSERT_STREQ(p.getTagName(), "v2.4.1");
+  ASSERT_STREQ(p.getFirmwareUrl(), "https://example.com/tiny.bin");
+  ASSERT_EQ(p.getFirmwareSize(), 4321u);
 
   printf("  passed\n");
   PASS();
@@ -803,6 +829,7 @@ int main() {
   testFieldOrderUrlBeforeName();
   testFieldOrderSizeBeforeUrl();
   testFieldOrderNameFirst();
+  testCustomAssetMatcher();
   testAssetsBeforeTagName();
   testChunkedFeedingRealisticSmallChunks();
   testChunkedFeedingByteByByte();

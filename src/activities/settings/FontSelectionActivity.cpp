@@ -19,9 +19,9 @@ void FontSelectionActivity::onEnter() {
   fonts_.clear();
   fonts_.reserve(CrossPointSettings::BUILTIN_FONT_COUNT + (registry_ ? registry_->getFamilyCount() : 0));
 
-  fonts_.push_back({I18N.get(StrId::STR_NOTO_SERIF), true, 0});
-  fonts_.push_back({I18N.get(StrId::STR_NOTO_SANS), true, 1});
-  fonts_.push_back({I18N.get(StrId::STR_OPEN_DYSLEXIC), true, 2});
+  fonts_.push_back({I18N.get(StrId::STR_LEXEND_DECA), true, 0});
+  fonts_.push_back({I18N.get(StrId::STR_BITTER), true, 1});
+  fonts_.push_back({I18N.get(StrId::STR_CHAREINK), true, 2});
 
   if (registry_) {
     const auto& families = registry_->getFamilies();

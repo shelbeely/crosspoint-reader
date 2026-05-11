@@ -18,7 +18,7 @@ class BookMetadataCache {
 
   struct SpineEntry {
     std::string href;
-    uint32_t cumulativeSize;
+    uint32_t cumulativeSize;  // cumulative size stored as 32-bit for on-disk format compatibility
     int16_t tocIndex;
 
     SpineEntry() : cumulativeSize(0), tocIndex(-1) {}
@@ -105,6 +105,7 @@ class BookMetadataCache {
   // Reading phase (read mode)
   bool load();
   SpineEntry getSpineEntry(int index);
+  size_t getSpineCumulativeSize(int index);
   TocEntry getTocEntry(int index);
   int getSpineCount() const { return spineCount; }
   int getTocCount() const { return tocCount; }

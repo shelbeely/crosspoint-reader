@@ -121,13 +121,21 @@ void ClearCacheActivity::clearCache() {
 
 void ClearCacheActivity::loop() {
   if (state == WARNING) {
-    if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
       LOG_DBG("CLEAR_CACHE", "User confirmed, starting cache clear");
       {
         RenderLock lock(*this);
         state = CLEARING;
       }
-      requestUpdateAndWait();
+      if (requestUpdateAndWait() != RequestUpdateResult::Rendered) {
+        LOG_ERR("CLEAR_CACHE", "Clearing cache screen could not be rendered synchronously; aborting cache clear");
+        {
+          RenderLock lock(*this);
+          state = FAILED;
+        }
+        requestUpdate(true);
+        return;
+      }
 
       clearCache();
     }
