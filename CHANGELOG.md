@@ -21,8 +21,6 @@
 - **GAMES tile** and all game activity source files: `SnakeActivity`, `MinesweeperActivity`, `SudokuActivity`, `DiceRollerActivity`, `GameOfLifeActivity` — replaced by the PDA tile
 - Associated game i18n strings (`STR_SNAKE`, `STR_MINESWEEPER`, `STR_SUDOKU`, `STR_DICE_ROLLER`, `STR_GAME_OF_LIFE`, `STR_GAMES`) removed from all 23 translation YAML files
 
-### Added
-
 #### Apps framework (biscuit fork integration)
 - Integrate biscuit fork app framework: 8-tile grid/radar apps menu (COMMS, TOOLS, CRYPTO, GAMES, READER, FILES, SYSTEM, SETTINGS) with curated app set
 - **COMMS**: `MeshChatActivity` (ESP-NOW peer-to-peer chat), `KarmaAttackActivity` (karma rogue-AP), `MacRandomizerActivity` (WiFi MAC spoofer)

@@ -170,7 +170,7 @@ float loadRecentBookProgressPercent(const RecentBook& book) {
 }  // namespace
 
 int HomeActivity::getMenuItemCount() const {
-  int count = 6;  // File Browser, Recents, File transfer, Contacts, Apps, Settings
+  int count = 6;  // File Browser, Recents, File Transfer, Contacts, Apps, Settings (plus conditional OPDS/Stats/Bookmarks)
   if (!recentBooks.empty()) {
     count += recentBooks.size();
   }

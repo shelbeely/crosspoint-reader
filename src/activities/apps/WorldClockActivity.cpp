@@ -149,8 +149,9 @@ void WorldClockActivity::render(RenderLock&&) {
   const int rowH = metrics.listWithSubtitleRowHeight;
   const int pad = metrics.contentSidePadding;
 
-  // Get current UTC epoch.  configTime(0, 0, ...) sets no timezone offset so
-  // getLocalTime() returns UTC-based time; mktime gives us seconds since Unix epoch.
+  // Get current UTC epoch.  Assumes the system NTP client has been configured
+  // with UTC offset 0 (no DST adjustment), so getLocalTime() returns UTC and
+  // mktime() gives us seconds since Unix epoch in UTC.
   time_t utcNow = 0;
   struct tm utcTm = {};
   if (getLocalTime(&utcTm, 0)) {

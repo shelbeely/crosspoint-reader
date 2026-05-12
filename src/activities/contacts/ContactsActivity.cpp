@@ -353,9 +353,7 @@ void ContactsActivity::renderList() {
   const int visCount = (listBottom - listTop) / itemH;
 
   if (total == 0) {
-    const char* msg = (indexCount == 0) ? tr(STR_NO_CONTACTS)
-                    : searchActive         ? tr(STR_NO_CONTACTS)  // no results for search
-                                          : tr(STR_CONTACTS);
+    const char* msg = (indexCount == 0 || searchActive) ? tr(STR_NO_CONTACTS) : tr(STR_CONTACTS);
     renderer.drawCenteredText(UI_10_FONT_ID, listTop + 40, msg);
   } else {
     // Scroll window
