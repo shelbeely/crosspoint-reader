@@ -6,6 +6,10 @@
 - Add real EPUB `<hr>` rendering so horizontal rules now display as visible separators instead of being ignored
 - Add `ESPNOW` radio state to `RadioManager` with `ensureEspNow()` and `deinitEspNow()` so ESP-NOW lifecycle is managed centrally alongside WiFi and BLE
 - Integrate biscuit fork app framework: 8-tile grid/radar apps menu (COMMS, TOOLS, CRYPTO, GAMES, READER, FILES, SYSTEM, SETTINGS) with curated app set
+- Add `MacManager` utility (`src/util/MacManager.h/.cpp`) for reading, randomizing, and restoring the WiFi station MAC address
+- Add `MacRandomizerActivity`: randomize or restore the factory MAC with a single button press; shows current full MAC on screen
+- Add `KarmaAttackActivity`: passive WiFi probe-request sniffer that cycles into an open AP bearing the most-probed SSID; displays live probe table with hit counts
+- Display last two MAC octets (e.g. `a3:1f`) in the `AppsMenuActivity` status bar so the current identity is always visible
 
 ### Changed
 - Streamline biscuit app roster to 20 focused apps; remove ~75 specialist network/offense/security tools that are out of scope for an e-reader device

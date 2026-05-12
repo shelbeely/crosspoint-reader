@@ -34,6 +34,7 @@ class AppsMenuActivity final : public Activity {
   unsigned long lastInfoRefresh = 0;
   static constexpr unsigned long INFO_REFRESH_MS = 30000;
   char uptimeStr[16] = "";
+  char macShort[6] = "";  // last two octets: "ee:ff"
 
   // Badge placeholder — no active badges in this build
   int badgeSecurity = -1;

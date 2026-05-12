@@ -15,6 +15,8 @@
 #include "DeviceInfoActivity.h"
 #include "DiceRollerActivity.h"
 #include "GameOfLifeActivity.h"
+#include "KarmaAttackActivity.h"
+#include "MacRandomizerActivity.h"
 #include "MappedInputManager.h"
 #include "MeshChatActivity.h"
 #include "MinesweeperActivity.h"
@@ -35,11 +37,12 @@
 #include "components/UITheme.h"
 #include "components/themes/radar/RadarHomeRenderer.h"
 #include "fontIds.h"
+#include "util/MacManager.h"
 
 // 8 radar nodes — kept in flash (.rodata).
 // Order: COMMS, TOOLS, CRYPTO, GAMES, READER, FILES, SYSTEM, SETTINGS
 static constexpr RadarNode kRadarNodes[8] = {
-    {"COMMS", 1}, {"TOOLS", 4}, {"CRYPTO", 3}, {"GAMES", 5},
+    {"COMMS", 3}, {"TOOLS", 4}, {"CRYPTO", 3}, {"GAMES", 5},
     {"READER", 4}, {"FILES", 1}, {"SYSTEM", 3}, {"SETTINGS", 2},
 };
 
@@ -130,10 +133,14 @@ void AppsMenuActivity::loop() {
 std::unique_ptr<Activity> AppsMenuActivity::buildCategory(int index) {
   switch (index) {
     case 0: {
-      // COMMS — ESP-NOW + local wireless communication
+      // COMMS — ESP-NOW + local wireless communication + MAC tools
       std::vector<AppCategoryActivity::AppEntry> e = {
           {"Mesh Chat", "ESP-NOW text chat — no WiFi router needed", UIIcon::Transfer,
            [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MeshChatActivity>(r, m); }},
+          {"Karma Attack", "Rogue AP that responds to all probe requests", UIIcon::Wifi,
+           [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<KarmaAttackActivity>(r, m); }},
+          {"MAC Randomizer", "Randomize or restore the WiFi MAC address", UIIcon::Settings,
+           [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MacRandomizerActivity>(r, m); }},
       };
       return std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Comms", std::move(e), false, 0);
     }
@@ -292,6 +299,11 @@ void AppsMenuActivity::refreshSystemInfo() {
   wifiConnected = (WiFi.status() == WL_CONNECTED);
   lastInfoRefresh = millis();
 
+  // Refresh last-two-octet MAC abbreviation for the status bar.
+  uint8_t mac[6];
+  MAC_MGR.getMac(mac);
+  MacManager::formatShort(mac, macShort);
+
   unsigned long hrs = uptimeSeconds / 3600;
   unsigned long mins = (uptimeSeconds % 3600) / 60;
   if (hrs > 0) {
@@ -336,6 +348,12 @@ void AppsMenuActivity::drawStatusBar() const {
   renderer.drawText(SMALL_FONT_ID, rightX - heapW, 14, heapStr);
   rightX -= heapW + 10;
 
+  // MAC abbreviation (last two octets) — shows "??" if not yet read
+  const char* macDisplay = (macShort[0] != '\0') ? macShort : "??:??";
+  int macW = renderer.getTextWidth(SMALL_FONT_ID, macDisplay);
+  renderer.drawText(SMALL_FONT_ID, rightX - macW, 14, macDisplay);
+  rightX -= macW + 10;
+
   if (wifiConnected) {
     renderer.fillRect(rightX - 6, 16, 6, 6, true);
   } else {
@@ -363,7 +381,7 @@ void AppsMenuActivity::drawTile(int index, int x, int y, int w, int h, bool sele
     int appCount;
   };
   static constexpr TileInfo kTiles[ITEM_COUNT] = {
-      {"COMMS", "ESP-NOW chat", 1},
+      {"COMMS", "Chat, karma, MAC", 3},
       {"TOOLS", "Productivity", 4},
       {"CRYPTO", "Cipher & codes", 3},
       {"GAMES", "Entertainment", 5},
