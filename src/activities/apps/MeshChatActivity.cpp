@@ -53,17 +53,14 @@ void MeshChatActivity::onExit() {
 }
 
 void MeshChatActivity::initEspNow() {
-  RADIO.ensureWifi();
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-
-  // Set channel
-  esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
-
-  if (esp_now_init() != ESP_OK) {
-    LOG_ERR("MESH", "ESP-NOW init failed");
+  // RadioManager handles the WiFi STA bring-up and esp_now_init().
+  if (!RADIO.ensureEspNow()) {
+    LOG_ERR("MESH", "ESP-NOW init failed via RadioManager");
     return;
   }
+
+  // Set a fixed channel so all nodes can communicate.
+  esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
 
   esp_now_register_recv_cb(onDataRecv);
 
@@ -83,8 +80,7 @@ void MeshChatActivity::initEspNow() {
 
 void MeshChatActivity::deinitEspNow() {
   if (espnowInitialized) {
-    esp_now_unregister_recv_cb();
-    esp_now_deinit();
+    // RadioManager tears down the esp_now session and WiFi radio.
     RADIO.shutdown();
     espnowInitialized = false;
   }

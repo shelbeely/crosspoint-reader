@@ -2,26 +2,38 @@
 #include <cstdint>
 
 /**
- * Manages WiFi/BLE radio coexistence on ESP32-C3.
+ * Manages WiFi/BLE/ESP-NOW radio coexistence on ESP32-C3.
  * The radio is shared — WiFi and BLE cannot run simultaneously.
- * Call ensureWifi() before any WiFi operation and ensureBle() before any BLE operation.
+ * ESP-NOW runs on top of the WiFi radio (STA mode, no IP stack).
+ * Call ensureWifi() before any WiFi operation, ensureBle() before any BLE
+ * operation, and ensureEspNow() before any ESP-NOW operation.
  */
 class RadioManager {
  public:
-  enum class RadioState { OFF, WIFI, BLE };
+  enum class RadioState { OFF, WIFI, BLE, ESPNOW };
 
   static RadioManager& getInstance() {
     static RadioManager instance;
     return instance;
   }
 
-  // Ensure WiFi is available (deinits BLE if active)
+  // Ensure WiFi (IP stack) is available (deinits BLE/ESP-NOW if active)
   bool ensureWifi();
 
-  // Ensure BLE is available (deinits WiFi if active)
+  // Ensure BLE is available (deinits WiFi/ESP-NOW if active)
   bool ensureBle();
 
-  // Shut down all radios
+  /**
+   * Ensure ESP-NOW is available.
+   * Sets the radio to WiFi STA mode without the IP stack, then initialises
+   * esp_now.  If ESP-NOW is already initialised, this is a no-op.
+   * Deinits BLE if it was active.  If WiFi (IP) was active it is torn down
+   * first; the caller is responsible for reconnecting WiFi afterwards if
+   * needed.
+   */
+  bool ensureEspNow();
+
+  // Shut down all radios (including ESP-NOW if active)
   void shutdown();
 
   RadioState getState() const { return state; }
@@ -36,6 +48,7 @@ class RadioManager {
 
   void deinitWifi();
   void deinitBle();
+  void deinitEspNow();
 };
 
 #define RADIO RadioManager::getInstance()

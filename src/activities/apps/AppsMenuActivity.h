@@ -1,4 +1,5 @@
 #pragma once
+#include <memory>
 #include <string>
 
 #include "activities/Activity.h"
@@ -22,7 +23,6 @@ class AppsMenuActivity final : public Activity {
   static constexpr int COLS = 2;
   static constexpr int ROWS = 4;
 
-  // Grid navigation
   int getRow() const { return selectorIndex / COLS; }
   int getCol() const { return selectorIndex % COLS; }
 
@@ -35,16 +35,17 @@ class AppsMenuActivity final : public Activity {
   static constexpr unsigned long INFO_REFRESH_MS = 30000;
   char uptimeStr[16] = "";
 
-  // Badge counts (refreshed with system info)
-  int badgeRecon = 0;      // tracker alerts count
-  int badgeSecurity = -1;  // 0 = ok, -1 = PIN not set (show "!")
-  int badgeSystem = 0;     // firmware update available
+  // Badge placeholder — no active badges in this build
+  int badgeSecurity = -1;
 
   void refreshSystemInfo();
 
   // Last-used activity per category (read from SD on enter)
   char lastUsedName[ITEM_COUNT][32] = {};
   void loadLastUsed();
+
+  // Build the AppCategoryActivity for the given tile index
+  std::unique_ptr<Activity> buildCategory(int index);
 
   // Tile rendering
   void drawTile(int index, int x, int y, int w, int h, bool selected) const;

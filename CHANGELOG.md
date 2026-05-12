@@ -4,6 +4,15 @@
 
 ### Added
 - Add real EPUB `<hr>` rendering so horizontal rules now display as visible separators instead of being ignored
+- Add `ESPNOW` radio state to `RadioManager` with `ensureEspNow()` and `deinitEspNow()` so ESP-NOW lifecycle is managed centrally alongside WiFi and BLE
+- Integrate biscuit fork app framework: 8-tile grid/radar apps menu (COMMS, TOOLS, CRYPTO, GAMES, READER, FILES, SYSTEM, SETTINGS) with curated app set
+
+### Changed
+- Streamline biscuit app roster to 20 focused apps; remove ~75 specialist network/offense/security tools that are out of scope for an e-reader device
+- `MeshChatActivity` now delegates ESP-NOW init/deinit to `RadioManager.ensureEspNow()` / `RadioManager.shutdown()` for consistent radio coexistence
+- Last-used category paths moved from `/biscuit/` to `/.crosspoint/` to match the firmware's canonical data directory
+- Status bar branding updated from "biscuit." to "crosspoint."
+- NVS preferences namespace updated from `"biscuit"` to `"crosspoint"` in `RadioManager`
 
 ### Fixed
 - Render missing Unicode block redactions, black-square ornaments, Greek category letters, and turned-comma punctuation in reader fonts

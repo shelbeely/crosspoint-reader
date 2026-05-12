@@ -27,3 +27,15 @@ Keep this file focused on repo-specific gotchas that are worth reusing in future
 
 - POSIX TZ signs are inverted from ISO 8601 in `TimeStore::applyTimezone()`: `"UTC-1"` means UTC+1.
 - `LyraTheme::drawHeader()` does not call `BaseTheme::drawHeader()`, so header changes in the base theme must be duplicated in Lyra if needed.
+
+## Apps Framework (biscuit integration)
+
+- `src/activities/apps/` contains the biscuit-derived apps framework: `AppsMenuActivity` (8-tile grid + RADAR theme), `AppCategoryActivity` (generic submenu), `BackgroundManagerActivity`, `TaskManagerActivity`, and 16 curated apps (MeshChat, Calculator, Cipher, Clock, DeviceInfo, DiceRoller, GameOfLife, Minesweeper, MorseCode, OtpGenerator, QrGenerator, ReadingStats, SdFileBrowser, Snake, Sudoku, UnitConverter).
+- The RADAR theme requires exactly 8 nodes (`kRadarNodes[8]`, `NODE_COUNT=8`). Do not change `ITEM_COUNT` without updating `RadarHomeRenderer`.
+- Last-used category files live in `/.crosspoint/lastused_N.txt` (not `/biscuit/`).
+
+## ESP-NOW / RadioManager
+
+- `RadioManager` has three states: `WIFI`, `BLE`, `ESPNOW`. ESP-NOW = WiFi STA without IP stack + `esp_now_init()`. `ensureEspNow()` handles setup; `shutdown()` tears down all states including ESPNOW.
+- `MeshChatActivity` uses `RADIO.ensureEspNow()` for init; only calls `RADIO.shutdown()` on exit (does not call esp_now_deinit directly).
+- NVS namespace for RadioManager / disclaimer is `"crosspoint"` (changed from `"biscuit"`).
