@@ -281,7 +281,7 @@ void NotesActivity::startCreateNote() {
         loadNoteList();
         // Select the new note
         for (int i = 0; i < noteCount; i++) {
-          if (strncmp(noteList[i].filename, title.c_str(), sizeof(noteList[i].filename) - 1) == 0) {
+          if (strncmp(noteList[i].filename, title.c_str(), title.length() + 1) == 0) {
             listSelector = i;
             break;
           }

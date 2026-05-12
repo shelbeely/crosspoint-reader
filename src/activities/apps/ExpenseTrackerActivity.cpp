@@ -311,7 +311,8 @@ void ExpenseTrackerActivity::renderSummary() {
   for (int i = 0; i < expenseCount; i++) {
     total += expenses[i].amount_cents;
     for (int c = 0; c < CATEGORY_COUNT; c++) {
-      if (strncmp(expenses[i].category, kCategories[c], sizeof(expenses[i].category) - 1) == 0) {
+      if (strncmp(expenses[i].category, kCategories[c], strlen(kCategories[c])) == 0 &&
+          expenses[i].category[strlen(kCategories[c])] == '\0') {
         catTotals[c] += expenses[i].amount_cents;
         break;
       }
@@ -366,6 +367,7 @@ void ExpenseTrackerActivity::renderList() {
     if (first < 0) first = 0;
     // Show newest-first (reverse order)
     for (int i = 0; i < visCount && (first + i) < expenseCount; i++) {
+      // Newest-first: reverse index into the array
       int idx = expenseCount - 1 - (first + i);
       bool sel = ((first + i) == listSelector);
       if (sel) renderer.fillRect(0, y, pageW, itemH, true);

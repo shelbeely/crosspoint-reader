@@ -218,6 +218,11 @@ void TodoActivity::saveItems() const {
   LOG_INF("TODO", "Saved %d todo items", itemCount);
 }
 
+void TodoActivity::saveAndClearDirty() {
+  saveItems();
+  dirty = false;
+}
+
 // ---------------------------------------------------------------------------
 // Add / delete
 // ---------------------------------------------------------------------------
@@ -235,8 +240,7 @@ void TodoActivity::startAddItem() {
             itemCount++;
             selector = itemCount - 1;
             dirty = true;
-            saveItems();
-            dirty = false;
+            saveAndClearDirty();
           }
         }
         requestUpdate();
@@ -253,8 +257,7 @@ void TodoActivity::startDeleteItem(int idx) {
           itemCount--;
           if (selector >= itemCount && selector > 0) selector--;
           dirty = true;
-          saveItems();
-          dirty = false;
+          saveAndClearDirty();
         }
         requestUpdate();
       });

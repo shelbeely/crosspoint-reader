@@ -49,6 +49,7 @@ class TodoActivity final : public Activity {
 
   void loadItems();
   void saveItems() const;
+  void saveAndClearDirty();
 
   void startAddItem();
   void startDeleteItem(int idx);

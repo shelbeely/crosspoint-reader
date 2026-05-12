@@ -149,13 +149,12 @@ void WorldClockActivity::render(RenderLock&&) {
   const int rowH = metrics.listWithSubtitleRowHeight;
   const int pad = metrics.contentSidePadding;
 
-  // Get current UTC epoch
+  // Get current UTC epoch.  configTime(0, 0, ...) sets no timezone offset so
+  // getLocalTime() returns UTC-based time; mktime gives us seconds since Unix epoch.
   time_t utcNow = 0;
   struct tm utcTm = {};
   if (getLocalTime(&utcTm, 0)) {
     utcNow = mktime(&utcTm);
-    // getLocalTime returns localtime; we want UTC.
-    // Since configTime sets UTC (no timezone), mktime gives us UTC seconds.
   }
 
   if (clockCount == 0) {

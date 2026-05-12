@@ -439,7 +439,6 @@ void CalendarActivity::startAddEvent() {
                 snprintf(ev.date, sizeof(ev.date), "%04d-%02d-%02d", viewYear, viewMonth, selectedDay);
                 snprintf(ev.title, sizeof(ev.title), "%s", capturedTitle.c_str());
                 snprintf(ev.note, sizeof(ev.note), "%s", noteStr.c_str());
-                dirty = false;
                 saveEvents();
               }
               requestUpdate();

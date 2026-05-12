@@ -110,10 +110,10 @@ void VCard::feedLine(const char* line, size_t len, uint32_t lineOffset) {
       size_t givenLen = 0;
       while (i < valueLen && value[i] != ';') { i++; givenLen++; }
 
-      if (givenLen > 0 && out + givenLen + 1 < sizeof(buf)) {
+      if (givenLen > 0 && out + givenLen + 1 <= sizeof(buf)) {  // +1 for space
         memcpy(buf + out, given, givenLen);
         out += givenLen;
-        if (familyLen > 0) buf[out++] = ' ';
+        if (familyLen > 0 && out + 1 < sizeof(buf)) buf[out++] = ' ';
       }
       if (familyLen > 0 && out + familyLen < sizeof(buf)) {
         memcpy(buf + out, family, familyLen);
