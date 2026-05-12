@@ -4,11 +4,14 @@
 
 #include <algorithm>
 
+#include "CrossPointState.h"
 #include "OpdsServerStore.h"
 #include "SdCardFontGlobals.h"
+#include "apps/AppsMenuActivity.h"
 #include "boot_sleep/BootActivity.h"
 #include "boot_sleep/SleepActivity.h"
 #include "browser/OpdsBookBrowserActivity.h"
+#include "home/AlertActivity.h"
 #include "home/CrashActivity.h"
 #include "home/FileBrowserActivity.h"
 #include "home/HomeActivity.h"
@@ -21,9 +24,10 @@
 
 void ActivityManager::begin() {
   xTaskCreate(&renderTaskTrampoline, "ActivityManagerRender",
-              8192,              // Stack size
-              this,              // Parameters
-              1,                 // Priority
+              16384,  // Stack size — increased from 8192; createSectionFile() puts ChapterHtmlSlimParser (~700 bytes)
+                      // on stack during silentIndexNextChapterIfNeeded
+              this,   // Parameters
+              1,      // Priority
               &renderTaskHandle  // Task handle
   );
   assert(renderTaskHandle != nullptr && "Failed to create render task");
@@ -46,10 +50,10 @@ void ActivityManager::renderTaskLoop() {
     }
     // Notify any task blocked in requestUpdateAndWait() that the render is done.
     TaskHandle_t waiter = nullptr;
-    taskENTER_CRITICAL(nullptr);
+    taskENTER_CRITICAL(&renderStateMux);
     waiter = waitingTaskHandle;
     waitingTaskHandle = nullptr;
-    taskEXIT_CRITICAL(nullptr);
+    taskEXIT_CRITICAL(&renderStateMux);
     if (waiter) {
       xTaskNotify(waiter, 1, eIncrement);
     }
@@ -58,8 +62,11 @@ void ActivityManager::renderTaskLoop() {
 
 void ActivityManager::loop() {
   if (currentActivity) {
+    mappedInput.setPowerAsConfirmInReaderMode(currentActivity->allowPowerAsConfirmInReaderMode());
     // Note: do not hold a lock here, the loop() method must be responsible for acquire one if needed
     currentActivity->loop();
+  } else {
+    mappedInput.setPowerAsConfirmInReaderMode(false);
   }
 
   while (pendingAction != PendingAction::None) {
@@ -100,8 +107,10 @@ void ActivityManager::loop() {
           handler(pendingResult);
         }
 
-        // Request an update to ensure the popped activity gets re-rendered
+        // Queue an update to ensure the popped activity gets re-rendered.
+        // This path does not require the redraw to complete before loop() continues.
         if (pendingAction == PendingAction::None) {
+          lock.unlock();
           requestUpdate();
         }
 
@@ -137,6 +146,11 @@ void ActivityManager::loop() {
     }
   }
 
+  if (APP_STATE.hasPendingAlert.load(std::memory_order_acquire) && pendingAction == PendingAction::None) {
+    APP_STATE.hasPendingAlert.store(false, std::memory_order_relaxed);
+    pushActivity(std::make_unique<AlertActivity>(renderer, mappedInput));
+  }
+
   if (requestedUpdate) {
     requestedUpdate = false;
     // Using direct notification to signal the render task to update
@@ -169,8 +183,8 @@ void ActivityManager::replaceActivity(std::unique_ptr<Activity>&& newActivity) {
   }
 }
 
-void ActivityManager::goToFileTransfer() {
-  replaceActivity(std::make_unique<CrossPointWebServerActivity>(renderer, mappedInput));
+void ActivityManager::goToFileTransfer(std::string returnBookPath) {
+  replaceActivity(std::make_unique<CrossPointWebServerActivity>(renderer, mappedInput, std::move(returnBookPath)));
 }
 
 void ActivityManager::goToSettings() { replaceActivity(std::make_unique<SettingsActivity>(renderer, mappedInput)); }
@@ -193,13 +207,14 @@ void ActivityManager::goToBrowser() {
   }
 }
 
-void ActivityManager::goToReader(std::string path) {
+void ActivityManager::goToReader(std::string path, const bool suppressBackRelease) {
   ensureSdFontLoaded();
-  replaceActivity(std::make_unique<ReaderActivity>(renderer, mappedInput, std::move(path)));
+  replaceActivity(std::make_unique<ReaderActivity>(renderer, mappedInput, std::move(path), suppressBackRelease));
 }
 
 void ActivityManager::goToSleep() {
-  replaceActivity(std::make_unique<SleepActivity>(renderer, mappedInput));
+  const bool canSnapshotOverlay = currentActivity && currentActivity->canSnapshotForSleepOverlay();
+  replaceActivity(std::make_unique<SleepActivity>(renderer, mappedInput, canSnapshotOverlay));
   loop();  // Important: sleep screen must be rendered immediately, the caller will go to sleep right after this returns
 }
 
@@ -211,7 +226,7 @@ void ActivityManager::goToFullScreenMessage(std::string message, EpdFontFamily::
 
 void ActivityManager::goToCrashReport() { replaceActivity(std::make_unique<CrashActivity>(renderer, mappedInput)); }
 
-void ActivityManager::goHome() { replaceActivity(std::make_unique<HomeActivity>(renderer, mappedInput)); }
+void ActivityManager::goHome() { replaceActivity(std::make_unique<AppsMenuActivity>(renderer, mappedInput)); }
 
 void ActivityManager::pushActivity(std::unique_ptr<Activity>&& activity) {
   if (pendingActivity) {
@@ -240,6 +255,10 @@ bool ActivityManager::isReaderActivity() const {
          (currentActivity && currentActivity->isReaderActivity());
 }
 
+bool ActivityManager::canSnapshotForSleepOverlay() const {
+  return currentActivity && currentActivity->canSnapshotForSleepOverlay();
+}
+
 bool ActivityManager::skipLoopDelay() const { return currentActivity && currentActivity->skipLoopDelay(); }
 
 ScreenshotInfo ActivityManager::getScreenshotInfo() const {
@@ -260,13 +279,13 @@ void ActivityManager::requestUpdate(bool immediate) {
     requestedUpdate = true;
   }
 }
-void ActivityManager::requestUpdateAndWait() {
+RequestUpdateResult ActivityManager::requestUpdateAndWait() {
   if (!renderTaskHandle) {
-    return;
+    return RequestUpdateResult::Rejected;
   }
 
   // Atomic section to perform checks
-  taskENTER_CRITICAL(nullptr);
+  taskENTER_CRITICAL(&renderStateMux);
   auto currTaskHandler = xTaskGetCurrentTaskHandle();
   auto mutexHolder = xSemaphoreGetMutexHolder(renderingMutex);
   bool isRenderTask = (currTaskHandler == renderTaskHandle);
@@ -275,19 +294,27 @@ void ActivityManager::requestUpdateAndWait() {
   if (!alreadyWaiting && !isRenderTask && !holdingRenderLock) {
     waitingTaskHandle = currTaskHandler;
   }
-  taskEXIT_CRITICAL(nullptr);
+  taskEXIT_CRITICAL(&renderStateMux);
 
-  // Render task cannot call requestUpdateAndWait() or it will cause a deadlock
-  assert(!isRenderTask && "Render task cannot call requestUpdateAndWait()");
+  if (isRenderTask) {
+    LOG_ERR("ACT", "requestUpdateAndWait() called from render task; rejecting sync update");
+    return RequestUpdateResult::Rejected;
+  }
 
-  // There should never be the case where 2 tasks are waiting for a render at the same time
-  assert(!alreadyWaiting && "Already waiting for a render to complete");
+  if (alreadyWaiting) {
+    LOG_ERR("ACT", "requestUpdateAndWait() called while another task is waiting; rejecting sync update");
+    return RequestUpdateResult::Rejected;
+  }
 
   // Cannot call while holding RenderLock or it will cause a deadlock
-  assert(!holdingRenderLock && "Cannot call requestUpdateAndWait() while holding RenderLock");
+  if (holdingRenderLock) {
+    LOG_ERR("ACT", "requestUpdateAndWait() called while holding RenderLock; rejecting sync update");
+    return RequestUpdateResult::Rejected;
+  }
 
   xTaskNotify(renderTaskHandle, 1, eIncrement);
   ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+  return RequestUpdateResult::Rendered;
 }
 
 // RenderLock
@@ -317,10 +344,10 @@ void RenderLock::unlock() {
 }
 
 /**
+ * Checks if renderingMutex is held by any task, including the calling task.
  *
- * Checks if renderingMutex is busy.
+ * @return true if renderingMutex has an owner (any task), false otherwise.
  *
- * @return true if renderingMutex is busy, otherwise false.
- *
+ * @note Must not be called from ISR context — xSemaphoreGetMutexHolder is not ISR-safe.
  */
-bool RenderLock::peek() { return xQueuePeek(activityManager.renderingMutex, NULL, 0) != pdTRUE; };
+bool RenderLock::peek() { return xSemaphoreGetMutexHolder(activityManager.renderingMutex) != nullptr; }

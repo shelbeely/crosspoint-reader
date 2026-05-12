@@ -13,9 +13,10 @@ void safeCopy(char* dst, size_t dstSize, const char* src, size_t srcLen) {
 
 }  // namespace
 
-ReleaseJsonParser::ReleaseJsonParser()
+ReleaseJsonParser::ReleaseJsonParser(AssetMatcher assetMatcher)
     : parser(JsonCallbacks{this, sOnKey, sOnString, sOnNumber, sOnBool, sOnNull, sOnObjectStart, sOnObjectEnd,
-                           sOnArrayStart, sOnArrayEnd}) {
+                           sOnArrayStart, sOnArrayEnd}),
+      assetMatcher(assetMatcher) {
   reset();
 }
 
@@ -35,6 +36,8 @@ void ReleaseJsonParser::reset() {
   currentAssetSize = 0;
 }
 
+void ReleaseJsonParser::setAssetMatcher(AssetMatcher matcher) { assetMatcher = matcher; }
+
 void ReleaseJsonParser::feed(const char* data, size_t len) { parser.feed(data, len); }
 
 bool ReleaseJsonParser::foundTag() const { return tagFound; }
@@ -44,7 +47,9 @@ const char* ReleaseJsonParser::getFirmwareUrl() const { return firmwareUrl; }
 size_t ReleaseJsonParser::getFirmwareSize() const { return firmwareSize; }
 
 void ReleaseJsonParser::commitAsset() {
-  if (strcmp(currentAssetName, "firmware.bin") == 0) {
+  const bool matchesFirmware =
+      assetMatcher != nullptr ? assetMatcher(currentAssetName) : strcmp(currentAssetName, "firmware.bin") == 0;
+  if (!firmwareFound && matchesFirmware) {
     memcpy(firmwareUrl, currentAssetUrl, sizeof(firmwareUrl));
     firmwareSize = currentAssetSize;
     firmwareFound = true;

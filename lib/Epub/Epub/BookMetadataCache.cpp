@@ -5,6 +5,7 @@
 #include <ZipFile.h>
 
 #include <deque>
+#include <limits>
 
 #include "FsHelpers.h"
 
@@ -255,6 +256,16 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
       }
     }
 
+    constexpr size_t maxStoredCumulativeSize = std::numeric_limits<uint32_t>::max();
+    if (itemSize > maxStoredCumulativeSize || cumSize > maxStoredCumulativeSize - itemSize) {
+      LOG_ERR("BMC", "Spine cumulative size overflow for item %d (cumSize=%u, itemSize=%zu)", i, cumSize, itemSize);
+      zip.close();
+      bookFile.close();
+      spineFile.close();
+      tocFile.close();
+      return false;
+    }
+
     cumSize += itemSize;
     spineEntry.cumulativeSize = cumSize;
 
@@ -417,6 +428,32 @@ BookMetadataCache::SpineEntry BookMetadataCache::getSpineEntry(const int index) 
   serialization::readPod(bookFile, spineEntryPos);
   bookFile.seek(spineEntryPos);
   return readSpineEntry(bookFile);
+}
+
+size_t BookMetadataCache::getSpineCumulativeSize(const int index) {
+  if (!loaded) {
+    LOG_ERR("BMC", "getSpineCumulativeSize called but cache not loaded");
+    return 0;
+  }
+
+  if (index < 0 || index >= static_cast<int>(spineCount)) {
+    LOG_ERR("BMC", "getSpineCumulativeSize index %d out of range", index);
+    return 0;
+  }
+
+  // Seek to spine LUT item, then read only the cumulative size field from the entry.
+  bookFile.seek(lutOffset + sizeof(uint32_t) * index);
+  uint32_t spineEntryPos;
+  serialization::readPod(bookFile, spineEntryPos);
+  bookFile.seek(spineEntryPos);
+
+  uint32_t hrefLen = 0;
+  serialization::readPod(bookFile, hrefLen);
+  bookFile.seekCur(hrefLen);
+
+  uint32_t cumulativeSize = 0;
+  serialization::readPod(bookFile, cumulativeSize);
+  return static_cast<size_t>(cumulativeSize);
 }
 
 BookMetadataCache::TocEntry BookMetadataCache::getTocEntry(const int index) {

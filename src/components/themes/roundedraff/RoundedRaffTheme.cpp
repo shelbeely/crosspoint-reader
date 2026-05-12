@@ -114,7 +114,12 @@ void RoundedRaffTheme::drawTabBar(const GfxRenderer& renderer, Rect rect, const 
 
 void RoundedRaffTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
                                            const int selectorIndex, bool& coverRendered, bool& coverBufferStored,
-                                           bool& bufferRestored, std::function<bool()> storeCoverBuffer) const {
+                                           bool& bufferRestored, std::function<bool()> storeCoverBuffer,
+                                           const BookReadingStats* stats, float progressPercent) const {
+  (void)stats;
+  (void)progressPercent;
+  (void)selectorIndex;
+  (void)bufferRestored;
   const int tileWidth = rect.width - 2 * RoundedRaffMetrics::values.contentSidePadding;
   const int tileHeight = rect.height;
   const int tileY = rect.y;
@@ -306,10 +311,12 @@ void RoundedRaffTheme::drawList(const GfxRenderer& renderer, Rect rect, int item
                                 const std::function<std::string(int index)>& rowSubtitle,
                                 const std::function<UIIcon(int index)>& rowIcon,
                                 const std::function<std::string(int index)>& rowValue, bool highlightValue,
-                                const std::function<bool(int index)>& rowDimmed) const {
+                                const std::function<bool(int index)>& rowDimmed,
+                                const std::function<bool(int index)>& isHeader) const {
   (void)rowIcon;
   (void)highlightValue;
   (void)rowDimmed;
+  (void)isHeader;
   const bool hasSubtitle = static_cast<bool>(rowSubtitle);
   const int titleLineHeight = renderer.getLineHeight(kTitleFontId);
   const int subtitleLineHeight = renderer.getLineHeight(kSubtitleFontId);

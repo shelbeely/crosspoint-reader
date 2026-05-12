@@ -116,12 +116,22 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
     baseStyle = static_cast<EpdFontFamily::Style>(baseStyle | EpdFontFamily::UNDERLINE);
   }
 
-  // Already-bold text should stay fully bold; focus splitting would make its suffix regular later.
-  if (!this->focusReadingEnabled || (baseStyle & EpdFontFamily::BOLD) != 0) {
+  // GUIDE READING: insert middle dot (U+00B7) between non-continuation words.
+  if (guideReadingEnabled && !attachToPrevious && !words.empty()) {
+    words.emplace_back("\xc2\xb7");
+    wordStyles.push_back(EpdFontFamily::REGULAR);
+    wordContinues.push_back(false);
+    wordIsBionicSuffix.push_back(false);
+    wordIsGuideDot.push_back(true);
+  }
+
+  // Already-bold text should stay fully bold; bionic splitting would make its suffix regular later.
+  if (!this->bionicReadingEnabled || (baseStyle & EpdFontFamily::BOLD) != 0) {
     words.push_back(std::move(word));
     wordStyles.push_back(baseStyle);
     wordContinues.push_back(attachToPrevious);
-    wordIsFocusSuffix.push_back(false);
+    wordIsBionicSuffix.push_back(false);
+    wordIsGuideDot.push_back(false);
     return;
   }
 
@@ -147,7 +157,8 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
     words.reserve(newCapacity);
     wordStyles.reserve(newCapacity);
     wordContinues.reserve(newCapacity);
-    wordIsFocusSuffix.reserve(newCapacity);
+    wordIsBionicSuffix.reserve(newCapacity);
+    wordIsGuideDot.reserve(newCapacity);
   }
 
   // Lambda helper to process and push individual sub-segments of the string
@@ -158,7 +169,8 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
       words.emplace_back(segment);
       wordStyles.push_back(baseStyle);
       wordContinues.push_back(attach);
-      wordIsFocusSuffix.push_back(false);
+      wordIsBionicSuffix.push_back(false);
+      wordIsGuideDot.push_back(false);
     } else {
       size_t charCount = 0;
       const unsigned char* countPtr = reinterpret_cast<const unsigned char*>(segment.data());
@@ -169,8 +181,8 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
         charCount++;
       }
 
-      // Target 45% for 1-bold at 4 chars and 3-bold at 7 chars with floor truncation
-      constexpr size_t FOCUS_READING_PERCENT = 45;
+      // Target 43% for 1-bold at 4 chars and 3-bold at 7 chars with floor truncation
+      constexpr size_t FOCUS_READING_PERCENT = 43;
       size_t targetBoldChars = (charCount * FOCUS_READING_PERCENT) / 100;
       targetBoldChars = std::clamp<size_t>(targetBoldChars, 1, 9);
 
@@ -179,7 +191,8 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
         words.emplace_back(segment);
         wordStyles.push_back(static_cast<EpdFontFamily::Style>(baseStyle | EpdFontFamily::BOLD));
         wordContinues.push_back(attach);
-        wordIsFocusSuffix.push_back(false);
+        wordIsBionicSuffix.push_back(false);
+        wordIsGuideDot.push_back(false);
       } else {
         countPtr = reinterpret_cast<const unsigned char*>(segment.data());
         for (size_t i = 0; i < targetBoldChars; ++i) {
@@ -191,13 +204,15 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
         words.emplace_back(segment.substr(0, splitByteOffset));
         wordStyles.push_back(static_cast<EpdFontFamily::Style>(baseStyle | EpdFontFamily::BOLD));
         wordContinues.push_back(attach);
-        wordIsFocusSuffix.push_back(false);
+        wordIsBionicSuffix.push_back(false);
+        wordIsGuideDot.push_back(false);
 
-        // Regular suffix - marked so extractLine can merge it back into single TextBlock entry
+        // Regular suffix - marked so extractLine can merge it back into one TextBlock entry
         words.emplace_back(segment.substr(splitByteOffset));
         wordStyles.push_back(baseStyle);
         wordContinues.push_back(true);
-        wordIsFocusSuffix.push_back(true);
+        wordIsBionicSuffix.push_back(true);
+        wordIsGuideDot.push_back(false);
       }
     }
   };
@@ -302,7 +317,8 @@ void ParsedText::layoutAndExtractLines(const GfxRenderer& renderer, const int fo
     words.erase(words.begin(), words.begin() + consumed);
     wordStyles.erase(wordStyles.begin(), wordStyles.begin() + consumed);
     wordContinues.erase(wordContinues.begin(), wordContinues.begin() + consumed);
-    wordIsFocusSuffix.erase(wordIsFocusSuffix.begin(), wordIsFocusSuffix.begin() + consumed);
+    wordIsBionicSuffix.erase(wordIsBionicSuffix.begin(), wordIsBionicSuffix.begin() + consumed);
+    wordIsGuideDot.erase(wordIsGuideDot.begin(), wordIsGuideDot.begin() + consumed);
   }
 }
 
@@ -323,13 +339,19 @@ std::vector<size_t> ParsedText::computeLineBreaks(const GfxRenderer& renderer, c
     return {};
   }
 
+  auto nextTokenAttaches = [&](const size_t index, const size_t totalWordCount) {
+    return index + 1 < totalWordCount && (continuesVec[index + 1] || wordIsGuideDot[index + 1]);
+  };
+
   // Calculate first line indent (only for left/justified text).
-  // Positive text-indent (paragraph indent) is suppressed when extraParagraphSpacing is on.
+  // Positive text-indent is normally suppressed when extraParagraphSpacing is on,
+  // unless forceParagraphIndents overrides that behavior.
   // Negative text-indent (hanging indent, e.g. margin-left:3em; text-indent:-1em) always applies —
   // it is structural (positions the bullet/marker), not decorative.
   const int firstLineIndent =
-      blockStyle.textIndentDefined && (blockStyle.textIndent < 0 || !extraParagraphSpacing) &&
-              (blockStyle.alignment == CssTextAlign::Justify || blockStyle.alignment == CssTextAlign::Left)
+      blockStyle.textIndentDefined && (blockStyle.textIndent < 0 || !extraParagraphSpacing || forceParagraphIndents) &&
+              (blockStyle.alignment == CssTextAlign::Justify || blockStyle.alignment == CssTextAlign::Left ||
+               blockStyle.alignment == CssTextAlign::None)
           ? blockStyle.textIndent
           : 0;
 
@@ -379,7 +401,7 @@ std::vector<size_t> ParsedText::computeLineBreaks(const GfxRenderer& renderer, c
       }
 
       // Cannot break after word j if the next word attaches to it (continuation group)
-      if (j + 1 < totalWordCount && continuesVec[j + 1]) {
+      if (nextTokenAttaches(j, totalWordCount)) {
         continue;
       }
 
@@ -438,14 +460,15 @@ std::vector<size_t> ParsedText::computeLineBreaks(const GfxRenderer& renderer, c
 }
 
 void ParsedText::applyParagraphIndent() {
-  if (extraParagraphSpacing || words.empty()) {
+  if ((extraParagraphSpacing && !forceParagraphIndents) || words.empty()) {
     return;
   }
 
   if (blockStyle.textIndentDefined) {
     // CSS text-indent is explicitly set (even if 0) - don't use fallback EmSpace
     // The actual indent positioning is handled in extractLine()
-  } else if (blockStyle.alignment == CssTextAlign::Justify || blockStyle.alignment == CssTextAlign::Left) {
+  } else if (blockStyle.alignment == CssTextAlign::Justify || blockStyle.alignment == CssTextAlign::Left ||
+             blockStyle.alignment == CssTextAlign::None) {
     // No CSS text-indent defined - use EmSpace fallback for visual indent
     words.front().insert(0, "\xe2\x80\x83");
   }
@@ -456,18 +479,23 @@ std::vector<size_t> ParsedText::computeHyphenatedLineBreaks(const GfxRenderer& r
                                                             const int pageWidth, std::vector<uint16_t>& wordWidths,
                                                             std::vector<bool>& continuesVec) {
   // Calculate first line indent (only for left/justified text).
-  // Positive text-indent (paragraph indent) is suppressed when extraParagraphSpacing is on.
+  // Positive text-indent is normally suppressed when extraParagraphSpacing is on,
+  // unless forceParagraphIndents overrides that behavior.
   // Negative text-indent (hanging indent, e.g. margin-left:3em; text-indent:-1em) always applies —
   // it is structural (positions the bullet/marker), not decorative.
   const int firstLineIndent =
-      blockStyle.textIndentDefined && (blockStyle.textIndent < 0 || !extraParagraphSpacing) &&
-              (blockStyle.alignment == CssTextAlign::Justify || blockStyle.alignment == CssTextAlign::Left)
+      blockStyle.textIndentDefined && (blockStyle.textIndent < 0 || !extraParagraphSpacing || forceParagraphIndents) &&
+              (blockStyle.alignment == CssTextAlign::Justify || blockStyle.alignment == CssTextAlign::Left ||
+               blockStyle.alignment == CssTextAlign::None)
           ? blockStyle.textIndent
           : 0;
 
   std::vector<size_t> lineBreakIndices;
   size_t currentIndex = 0;
   bool isFirstLine = true;
+  auto currentTokenAttaches = [&](const size_t index) {
+    return index < wordWidths.size() && (continuesVec[index] || wordIsGuideDot[index]);
+  };
 
   while (currentIndex < wordWidths.size()) {
     const size_t lineStart = currentIndex;
@@ -519,7 +547,7 @@ std::vector<size_t> ParsedText::computeHyphenatedLineBreaks(const GfxRenderer& r
 
     // Don't break before a continuation word (e.g., orphaned "?" after "question").
     // Backtrack to the start of the continuation group so the whole group moves to the next line.
-    while (currentIndex > lineStart + 1 && currentIndex < wordWidths.size() && continuesVec[currentIndex]) {
+    while (currentIndex > lineStart + 1 && currentTokenAttaches(currentIndex)) {
       --currentIndex;
     }
 
@@ -586,8 +614,9 @@ bool ParsedText::hyphenateWordAtIndex(const size_t wordIndex, const int availabl
   // Insert the remainder word (with matching style and continuation flag) directly after the prefix.
   words.insert(words.begin() + wordIndex + 1, remainder);
   wordStyles.insert(wordStyles.begin() + wordIndex + 1, style);
-  // The hyphen remainder is not a focus suffix - it starts fresh on the next line.
-  wordIsFocusSuffix.insert(wordIsFocusSuffix.begin() + wordIndex + 1, false);
+  // The hyphen remainder is neither a bionic suffix nor a guide dot - it starts fresh on the next line.
+  wordIsBionicSuffix.insert(wordIsBionicSuffix.begin() + wordIndex + 1, false);
+  wordIsGuideDot.insert(wordIsGuideDot.begin() + wordIndex + 1, false);
 
   // Continuation flag handling after splitting a word into prefix + remainder.
   //
@@ -627,13 +656,16 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   const size_t lineWordCount = lineBreak - lastBreakAt;
 
   // Calculate first line indent (only for left/justified text).
-  // Positive text-indent (paragraph indent) is suppressed when extraParagraphSpacing is on.
+  // Positive text-indent is normally suppressed when extraParagraphSpacing is on,
+  // unless forceParagraphIndents overrides that behavior.
   // Negative text-indent (hanging indent, e.g. margin-left:3em; text-indent:-1em) always applies —
   // it is structural (positions the bullet/marker), not decorative.
   const bool isFirstLine = breakIndex == 0;
   const int firstLineIndent =
-      isFirstLine && blockStyle.textIndentDefined && (blockStyle.textIndent < 0 || !extraParagraphSpacing) &&
-              (blockStyle.alignment == CssTextAlign::Justify || blockStyle.alignment == CssTextAlign::Left)
+      isFirstLine && blockStyle.textIndentDefined &&
+              (blockStyle.textIndent < 0 || !extraParagraphSpacing || forceParagraphIndents) &&
+              (blockStyle.alignment == CssTextAlign::Justify || blockStyle.alignment == CssTextAlign::Left ||
+               blockStyle.alignment == CssTextAlign::None)
           ? blockStyle.textIndent
           : 0;
 
@@ -729,53 +761,42 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
     }
   }
 
-  // Fast path: when no word on this line was split for focus reading, skip the merge work
-  // entirely and pass empty boundary/suffixX vectors. TextBlock pays zero per-word RAM cost
-  // for these annotations when the vectors are empty.
-  bool lineHasFocusSplit = false;
-  for (size_t i = 0; i < lineWordCount; i++) {
-    if (wordIsFocusSuffix[lastBreakAt + i]) {
-      lineHasFocusSplit = true;
-      break;
-    }
-  }
-
-  if (!lineHasFocusSplit) {
-    processLine(std::make_shared<TextBlock>(std::move(lineWords), std::move(lineXPos), std::move(lineWordStyles),
-                                            std::vector<uint8_t>{}, std::vector<uint16_t>{}, blockStyle));
-    return;
-  }
-
-  // Slow path: merge focus suffix tokens back into their preceding word entry so each
-  // original word occupies one TextBlock slot. Splits are recorded as per-word annotations
-  // applied at render time, cutting the token count significantly when the feature is active.
+  // Merge bionic suffix tokens and guide dot tokens back into their preceding word entry so each
+  // original word occupies one TextBlock slot. Both splits are recorded as per-word annotations
+  // applied at render time, cutting the token count significantly when either feature is active.
   std::vector<std::string> outWords;
   std::vector<int16_t> outXPos;
   std::vector<EpdFontFamily::Style> outStyles;
   std::vector<uint8_t> outBoundaries;
   std::vector<uint16_t> outSuffixX;
+  std::vector<uint16_t> outGuideDotXOffset;
   outWords.reserve(lineWordCount);
   outXPos.reserve(lineWordCount);
   outStyles.reserve(lineWordCount);
   outBoundaries.reserve(lineWordCount);
   outSuffixX.reserve(lineWordCount);
+  outGuideDotXOffset.reserve(lineWordCount);
 
   for (size_t i = 0; i < lineWordCount; i++) {
-    if (wordIsFocusSuffix[lastBreakAt + i] && !outWords.empty()) {
-      // Focus suffix: merge string into the preceding bold-prefix entry.
+    if (wordIsBionicSuffix[lastBreakAt + i] && !outWords.empty()) {
+      // Bionic suffix: merge string into the preceding bold-prefix entry.
       outWords.back() += lineWords[i];
+    } else if (wordIsGuideDot[lastBreakAt + i] && !outWords.empty()) {
+      // Guide dot: annotate the preceding word entry with the dot's pixel offset.
+      // Offset is relative to that word's x so render can place it without extra data.
+      outGuideDotXOffset.back() = static_cast<uint16_t>(lineXPos[i] - outXPos.back());
     } else {
-      // Normal word: check for a following focus suffix to record the byte boundary.
+      // Normal word: check for a following bionic suffix to record the byte boundary.
       uint8_t boundary = 0;
       uint16_t suffixX = 0;
-      if (i + 1 < lineWordCount && wordIsFocusSuffix[lastBreakAt + i + 1]) {
+      if (i + 1 < lineWordCount && wordIsBionicSuffix[lastBreakAt + i + 1]) {
         boundary = static_cast<uint8_t>(std::min(lineWords[i].size(), size_t{255}));
         // Suffix x offset = layout-time advance of the bold prefix, already known from xpos table.
         suffixX = static_cast<uint16_t>(lineXPos[i + 1] - lineXPos[i]);
       }
       outWords.push_back(std::move(lineWords[i]));
       outXPos.push_back(lineXPos[i]);
-      // For focus entries with a suffix, strip BOLD from the stored style.
+      // For bionic entries with a suffix, strip BOLD from the stored style.
       // Render re-applies it to the prefix portion only, via the boundary field.
       const EpdFontFamily::Style storedStyle =
           boundary > 0 ? static_cast<EpdFontFamily::Style>(lineWordStyles[i] & ~EpdFontFamily::BOLD)
@@ -783,9 +804,11 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
       outStyles.push_back(storedStyle);
       outBoundaries.push_back(boundary);
       outSuffixX.push_back(suffixX);
+      outGuideDotXOffset.push_back(0);  // filled in later if a guide dot follows
     }
   }
 
   processLine(std::make_shared<TextBlock>(std::move(outWords), std::move(outXPos), std::move(outStyles),
-                                          std::move(outBoundaries), std::move(outSuffixX), blockStyle));
+                                          std::move(outBoundaries), std::move(outSuffixX),
+                                          std::move(outGuideDotXOffset), blockStyle));
 }

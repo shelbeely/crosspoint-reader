@@ -7,12 +7,15 @@
 
 class ReleaseJsonParser {
  public:
-  ReleaseJsonParser();
+  using AssetMatcher = bool (*)(const char* assetName);
+
+  explicit ReleaseJsonParser(AssetMatcher assetMatcher = nullptr);
 
   ReleaseJsonParser(const ReleaseJsonParser&) = delete;
   ReleaseJsonParser& operator=(const ReleaseJsonParser&) = delete;
 
   void reset();
+  void setAssetMatcher(AssetMatcher assetMatcher);
   void feed(const char* data, size_t len);
 
   bool foundTag() const;
@@ -50,6 +53,7 @@ class ReleaseJsonParser {
   void commitAsset();
 
   StreamingJsonParser parser;
+  AssetMatcher assetMatcher;
 
   Position position;
   LastKey lastKey;
@@ -62,7 +66,7 @@ class ReleaseJsonParser {
   bool tagFound;
   bool firmwareFound;
 
-  char currentAssetName[32];
+  char currentAssetName[96];
   char currentAssetUrl[512];
   size_t currentAssetSize;
 };

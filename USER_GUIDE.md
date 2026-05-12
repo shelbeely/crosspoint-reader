@@ -1,8 +1,8 @@
-# CrossPoint User Guide
+# Biscuit User Guide
 
-Welcome to the **CrossPoint** firmware. This guide outlines the hardware controls, navigation, and reading features of the device.
+Welcome to the **Biscuit** firmware. This guide outlines the hardware controls, navigation, and reading features of the device.
 
-- [CrossPoint User Guide](#crosspoint-user-guide)
+- [Biscuit User Guide](#biscuit-user-guide)
   - [1. Hardware Overview](#1-hardware-overview)
     - [Button Layout](#button-layout)
   - [2. Power \& Startup](#2-power--startup)
@@ -20,9 +20,7 @@ Welcome to the **CrossPoint** firmware. This guide outlines the hardware control
       - [3.6.2 Reader](#362-reader)
       - [3.6.3 Controls](#363-controls)
       - [3.6.4 System](#364-system)
-      - [3.6.5 OPDS Servers (Multiple Libraries)](#365-opds-servers-multiple-libraries)
-      - [3.6.6 Web Settings (WiFi + OPDS)](#366-web-settings-wifi--opds)
-      - [3.6.7 KOReader Sync Quick Setup](#367-koreader-sync-quick-setup)
+      - [3.6.5 KOReader Sync Quick Setup](#365-koreader-sync-quick-setup)
     - [3.7 Sleep Screen](#37-sleep-screen)
   - [4. Reading Mode](#4-reading-mode)
     - [Page Turning](#page-turning)
@@ -73,9 +71,14 @@ Upon turning the device on for the first time, you will be placed on the **[Home
 
 ## 3. Screens
 
-### 3.1 Home Screen
+### 3.1 Dashboard
 
-The Home screen is the main entry point to the firmware. From here you can navigate to **[Reading Mode](#4-reading-mode)** with the most recently read book, the **[Browse Files](#33-browse-files-screen)** screen, the **[Recent Books](#34-recent-books-screen)** screen, the **[File Transfer](#35-file-transfer-screen)** screen, or **[Settings](#36-settings)**.
+The Dashboard is the main screen. It shows 8 category tiles in a 2×4 grid:
+Network, Recon, Security, Comms, Tools, Games, System, Reader.
+
+A status bar at the top shows battery, heap, uptime, and WiFi status.
+
+Navigate tiles with Left/Right (front buttons) and Up/Down (side buttons). Press Confirm to enter a category.
 
 ### 3.2 Reading Mode
 
@@ -104,7 +107,7 @@ See the [webserver docs](./docs/webserver.md) for more information on how to con
 
 ### 3.5.1 Calibre Wireless Transfers
 
-CrossPoint supports sending books from Calibre using the CrossPoint Reader device plugin.
+Biscuit supports sending books from Calibre using the Biscuit Reader device plugin.
 
 1. Install the plugin in Calibre:
    - Head to https://github.com/crosspoint-reader/calibre-plugins/releases to download the latest version of the crosspoint_reader plugin.
@@ -148,16 +151,16 @@ The Settings screen allows you to configure the device's behavior. There are a f
 - **Refresh Frequency**: Set how often the screen does a full refresh while reading to reduce ghosting; options are every 1, 5, 10, 15, or 30 pages.
 
 - **UI Theme**: Set which UI theme to use:
-  - "Classic" - The original Crosspoint theme
-  - "Lyra" - The new theme for Crosspoint featuring rounded elements and menu icons
-  - "Lyra Extended" - Lyra, but displays 3 books instead of 1 on the **[Home Screen](#31-home-screen)**
+  - "Classic" - The original theme
+  - "Lyra" - Theme featuring rounded elements and menu icons
+  - "Lyra Extended" - Lyra, but displays 3 books instead of 1 on the home screen
 - **Sunlight Fading Fix**: Configure whether to enable a software-fix for the issue where white X4 models may fade when used in direct sunlight:
   - "OFF" (default) - Disable the fix
   - "ON" - Enable the fix
 
 #### 3.6.2 Reader
 - **Reader Font Family**: Choose the font used for reading:
-  - "Noto Serif" (default) - Google's serif font
+  - "Bookerly" (default) - Amazon's reading font
   - "Noto Sans" - Google's sans-serif font
   - "Open Dyslexic" - Font designed for readers with dyslexia
 - **Reader Font Size**: Adjust the text size for reading; options are "Small", "Medium" (default), "Large", or "X Large".
@@ -196,54 +199,14 @@ The Settings screen allows you to configure the device's behavior. There are a f
 
 - **WiFi Networks**: Connect to WiFi networks for file transfers and firmware updates.
 - **KOReader Sync**: Options for setting up KOReader for syncing book progress.
-- **OPDS Servers**: Manage one or more OPDS [(Open Publication Distribution System)](https://en.wikipedia.org/wiki/Open_Publication_Distribution_System) libraries for browsing and downloading books. See [OPDS Servers (Multiple Libraries)](#365-opds-servers-multiple-libraries) below.
+- **OPDS Browser**: Configure OPDS server settings for browsing and downloading books. Set the server URL (for Calibre Content Server, add `/opds` to the end), and optionally configure username and password for servers requiring authentication. Note: Only HTTP Basic authentication is supported. If using Calibre Content Server with authentication enabled, you must set it to use Basic authentication instead of the default Digest authentication.
 - **Clear Reading Cache**: Clear the internal SD card cache.
-- **Check for updates**: Check for Crosspoint firmware updates over WiFi.
+- **Check for updates**: Check for firmware updates over WiFi.
 - **Language**: Set the system language (see **[Supported Languages](#supported-languages)** for more information).
 
-#### 3.6.5 OPDS Servers (Multiple Libraries)
+#### 3.6.5 KOReader Sync Quick Setup
 
-CrossPoint supports saving multiple OPDS servers and switching between them when browsing catalogs.
-
-1. Open **Settings -> System -> OPDS Servers**.
-2. Select **Add Server** to create a new entry, or select an existing server to edit it.
-3. Configure these fields:
-  - **Server Name**: Optional display name (for example, "Home Calibre" or "Public Catalog").
-  - **OPDS Server URL**: Full catalog root URL (for Calibre Content Server, usually ends with `/opds`).
-  - **Username / Password**: Optional credentials for authenticated servers.
-4. Use **Delete Server** inside a server entry to remove it.
-
-Behavior notes:
-
-- You can store up to 8 OPDS servers.
-- OPDS authentication supports HTTP Basic auth. If you use Calibre Content Server with authentication enabled, set it to Basic (not Digest).
-
-You can also manage OPDS servers from the web interface while in File Transfer mode:
-
-1. Connect to the device web UI.
-2. Open `http://<device-ip>/settings`.
-3. Use the **OPDS Servers** card to add, edit, or delete entries.
-
-For web-based WiFi network management, see [Web Settings (WiFi + OPDS)](#366-web-settings-wifi--opds).
-
-#### 3.6.6 Web Settings (WiFi + OPDS)
-
-While in **File Transfer** mode, the web settings page includes management cards for both **WiFi Networks** and **OPDS Servers**.
-
-1. On device: open **File Transfer** and connect to WiFi.
-1. In a browser, open `http://<device-ip>/settings` or `http://crosspoint.local`.
-1. In **WiFi Networks**, add, edit, or delete saved network entries (SSID + optional password).
-1. In **OPDS Servers**, add, edit, or delete OPDS catalogs.
-
-Behavior notes:
-
-- Passwords are never shown back in the web UI after saving.
-- Leaving Password blank while editing keeps the existing saved password unchanged.
-- The web UI can save hidden-network SSIDs, but connecting to hidden networks still depends on device-side WiFi connection flow.
-
-#### 3.6.7 KOReader Sync Quick Setup
-
-CrossPoint can sync reading progress with KOReader-compatible sync servers.
+Biscuit can sync reading progress with KOReader-compatible sync servers.
 It also interoperates with KOReader apps/devices when they use the same server and credentials.
 
 ##### Option A: Free Public Server (`sync.koreader.rocks`)
@@ -265,9 +228,9 @@ Already have KOReader Sync credentials? Skip registration; basic sync only requi
 
 When this returns `HTTP 402` with `{"code":2002,"message":"Username is already registered."}`, pick a different username or use that existing account.
 
-2. On each CrossPoint device:
+2. On each Biscuit device:
    - Go to **Settings -> System -> KOReader Sync**.
-   - Set **Username** and **Password** (enter the plain password; CrossPoint computes MD5 internally, and use the same values on all devices).
+   - Set **Username** and **Password** (enter the plain password; Biscuit computes MD5 internally, and use the same values on all devices).
    - Set **Sync Server URL** to `https://sync.koreader.rocks`, or leave it empty (both use the same default KOReader sync server).
    - Run **Authenticate**.
 
@@ -315,7 +278,7 @@ curl -H "Accept: application/vnd.koreader.v1+json" "http://<server-ip>:17200/hea
 ```
 
 3. Register a user once.
-CrossPoint authenticates against KOReader Sync (`koreader/kosync`) using an MD5 key, so register using the MD5 of your password:
+Biscuit authenticates against KOReader Sync (`koreader/kosync`) using an MD5 key, so register using the MD5 of your password:
 
 > [!WARNING]
 > Sending a reusable MD5-derived password over plain HTTP is insecure.
@@ -336,9 +299,9 @@ curl -i "http://<server-ip>:17200/users/create" \
 
 If this returns `HTTP 402` with `{"code":2002,"message":"Username is already registered."}`, the account already exists.
 
-4. On each CrossPoint device:
+4. On each Biscuit device:
    - Go to **Settings -> System -> KOReader Sync**.
-   - Set **Username** and **Password** (enter the plain password; CrossPoint computes MD5 internally, and use the same values on all devices).
+   - Set **Username** and **Password** (enter the plain password; Biscuit computes MD5 internally, and use the same values on all devices).
    - Set **Sync Server URL** to `http://<server-ip>:17200`.
    - Run **Authenticate**.
 
@@ -354,8 +317,8 @@ The **Sleep Screen** setting controls what is displayed when the device goes to 
 
 | Mode | Behavior |
 |------|----------|
-| **Dark** (default) | The CrossPoint logo on a dark background. |
-| **Light** | The CrossPoint logo on a white background. |
+| **Dark** (default) | The Biscuit logo on a dark background. |
+| **Light** | The Biscuit logo on a white background. |
 | **Custom** | A custom image from the SD card (see below). Falls back to **Dark** if no custom image is found. |
 | **Cover** | The cover of the currently open book. Falls back to **Dark** if no book is open. |
 | **Cover + Custom** | The cover of the currently open book. Falls back to **Custom** behavior if no book is open. |
@@ -378,8 +341,7 @@ To use custom sleep images, set the sleep screen mode to **Custom** or **Cover +
 > [!TIP]
 > For best results:
 > - Use uncompressed BMP files with 24-bit color depth
-> - X4: Use a resolution of 480x800 pixels to match the device's screen resolution.
-> - X3: Use a resolution of 528x792 pixels to match the device's screen resolution.
+> - Use a resolution of 480x800 pixels to match the device's screen resolution.
 
 ---
 
@@ -411,7 +373,7 @@ This feature can be disabled in the **[Controls Settings](#363-controls)** to he
 
 ### Supported Languages
 
-CrossPoint renders text using the following Unicode character blocks, enabling support for a wide range of languages:
+Biscuit renders text using the following Unicode character blocks, enabling support for a wide range of languages:
 
 *   **Latin Script (Basic, Supplement, Extended-A):** Covers English, German, French, Spanish, Portuguese, Italian, Dutch, Swedish, Norwegian, Danish, Finnish, Polish, Czech, Hungarian, Romanian, Slovak, Slovenian, Turkish, and others.
 *   **Cyrillic Script (Standard and Extended):** Covers Russian, Ukrainian, Belarusian, Bulgarian, Serbian, Macedonian, Kazakh, Kyrgyz, Mongolian, and others.
@@ -441,7 +403,7 @@ Please note that this firmware is currently in active development. The following
 
 ## 7. Troubleshooting Issues & Escaping Bootloop
 
-If an issue or crash is encountered while using Crosspoint, feel free to raise an issue ticket and attach the serial monitor logs. The logs can be obtained by connecting the device to a computer and starting a serial monitor. Either [Serial Monitor](https://www.serialmonitor.org/) or the following command can be used:
+If an issue or crash is encountered while using Biscuit, feel free to raise an issue ticket and attach the serial monitor logs. The logs can be obtained by connecting the device to a computer and starting a serial monitor. Either [Serial Monitor](https://www.serialmonitor.org/) or the following command can be used:
 
 ```
 pio device monitor

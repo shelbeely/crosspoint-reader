@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <cstdint>
 #include <string>
 
@@ -10,6 +11,7 @@ class CrossPointState {
   static constexpr uint8_t SLEEP_RECENT_COUNT = 16;
 
   std::string openEpubPath;
+  std::string favoriteSleepImagePath;
   uint16_t recentSleepImages[SLEEP_RECENT_COUNT] = {};  // circular buffer of recent wallpaper indices
   uint8_t recentSleepPos = 0;                           // next write slot
   uint8_t recentSleepFill = 0;                          // valid entries (0..SLEEP_RECENT_COUNT)
@@ -29,6 +31,14 @@ class CrossPointState {
   bool saveToFile() const;
 
   bool loadFromFile();
+  uint16_t pendingBookmarkSpine = UINT16_MAX;
+  float pendingBookmarkProgress = -1.0f;
+
+  // Set by background move task on failure; read and cleared by ActivityManager to show AlertActivity.
+  // Title/body are written before the flag is set to ensure they are visible when flag is read.
+  std::atomic<bool> hasPendingAlert{false};
+  char pendingAlertTitle[64] = {};
+  char pendingAlertBody[256] = {};
 
  private:
   bool loadFromBinaryFile();

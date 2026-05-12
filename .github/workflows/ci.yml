@@ -2,7 +2,7 @@ name: CI (build)
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
 
 permissions:
@@ -18,7 +18,7 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.14'
+          python-version: "3.14"
 
       - name: Install clang-format-21
         run: |
@@ -42,13 +42,21 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.14'
+          python-version: "3.14"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
-          enable-cache: false
+          enable-cache: true
+
+      - name: Cache PlatformIO packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-platformio-${{ hashFiles('platformio.ini', 'platformio.local.example.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
 
       - name: Install PlatformIO Core
         run: uv pip install --system -U https://github.com/pioarduino/platformio-core/archive/refs/tags/v6.1.19.zip
@@ -65,41 +73,46 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.14'
+          python-version: "3.14"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
-          enable-cache: false
+          enable-cache: true
+
+      - name: Cache PlatformIO packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-platformio-${{ hashFiles('platformio.ini', 'platformio.local.example.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
 
       - name: Install PlatformIO Core
         run: uv pip install --system -U https://github.com/pioarduino/platformio-core/archive/refs/tags/v6.1.19.zip
 
-      - name: Build CrossPoint
+      - name: Build Biscuit
         run: |
           set -euo pipefail
           pio run | tee pio.log
 
       - name: Extract firmware stats
-
         run: |
           set -euo pipefail
-          ram_line="$(grep -E "RAM:\\s" -m1 pio.log || true)"
-          flash_line="$(grep -E "Flash:\\s" -m1 pio.log || true)"
-          echo "ram_line=${ram_line}" >> "$GITHUB_OUTPUT"
-          echo "flash_line=${flash_line}" >> "$GITHUB_OUTPUT"
           {
             echo "## Firmware build stats"
-            if [ -n "$ram_line" ]; then echo "- ${ram_line}"; else echo "- RAM: not found"; fi
-            if [ -n "$flash_line" ]; then echo "- ${flash_line}"; else echo "- Flash: not found"; fi
+            grep -E "RAM:\s|Flash:\s" pio.log | while read -r line; do echo "- ${line}"; done
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload firmware.bin artifact
-        uses: actions/upload-artifact@v6
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v7
         with:
-          name: firmware.bin
-          path: .pio/build/default/firmware.bin
+          name: firmware
+          path: |
+            .pio/build/tiny/firmware-tiny.bin
+            .pio/build/xlarge/firmware-xlarge.bin
+            .pio/build/no_emoji/firmware-no_emoji.bin
           if-no-files-found: error
 
   # This job is used as the PR required actions check, allows for changes to other steps in the future without breaking

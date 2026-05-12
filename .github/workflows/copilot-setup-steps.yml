@@ -1,0 +1,98 @@
+name: "Copilot Setup Steps"
+
+# Run automatically when this file changes so we can validate the setup,
+# and allow manual runs from the Actions tab.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # Job MUST be named `copilot-setup-steps` or Copilot will not pick it up.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          enable-cache: true
+
+      # Match the exact PlatformIO Core version pinned by ci.yml so Copilot's
+      # local builds behave the same way as CI.
+      - name: Install PlatformIO Core (pioarduino v6.1.19)
+        run: uv pip install --system -U https://github.com/pioarduino/platformio-core/archive/refs/tags/v6.1.19.zip
+
+      - name: Cache PlatformIO packages and toolchains
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-platformio-${{ hashFiles('platformio.ini', 'platformio.local.example.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
+
+      # Pre-warm the ESP32-C3 toolchain + library deps for every env in
+      # platformio.ini so `pio run` / `pio check` are fast for the agent.
+      # `--target checkprogsize` skips linking artifacts we don't need at
+      # setup time but still pulls down the framework + libraries.
+      - name: Pre-install PlatformIO toolchains and dependencies
+        run: |
+          set -euo pipefail
+          pio pkg install --global --tool "platformio/toolchain-riscv32-esp@*" || true
+          # Iterate envs so a single failure (e.g. an env requiring extra
+          # secrets) doesn't block the others.
+          for env in $(pio project config --json-output | python -c "import json,sys; print(' '.join(e[0].split(':',1)[1] for e in json.load(sys.stdin) if e[0].startswith('env:')))"); do
+            echo "::group::pio pkg install -e $env"
+            pio pkg install -e "$env" || echo "warning: pkg install failed for $env"
+            echo "::endgroup::"
+          done
+
+      # clang-format-21 is required by `bin/clang-format-fix` and the
+      # `clang-format` job in ci.yml. Installing it up-front saves Copilot
+      # ~3 minutes of apt + LLVM repo bootstrap on every session.
+      - name: Install clang-format-21
+        run: |
+          set -euo pipefail
+          wget -q https://apt.llvm.org/llvm.sh -O /tmp/llvm.sh
+          chmod +x /tmp/llvm.sh
+          sudo /tmp/llvm.sh 21
+          sudo apt-get update
+          sudo apt-get install -y clang-format-21 cppcheck
+          # Make `clang-format` resolve to v21 system-wide for tools that
+          # don't go through bin/clang-format-fix.
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-21 100
+
+      - name: Verify toolchain
+        run: |
+          set -euo pipefail
+          python --version
+          uv --version
+          pio --version
+          clang-format-21 --version
+          cppcheck --version
+
+      # Smoke-test the host-runnable test suite so any regression in the
+      # setup itself surfaces here instead of mid-session.
+      - name: Smoke test host test runners
+        run: |
+          set -euo pipefail
+          bash test/run_differential_rounding_test.sh
+          bash test/run_release_json_parser_test.sh
+          bash test/run_streaming_json_parser_test.sh

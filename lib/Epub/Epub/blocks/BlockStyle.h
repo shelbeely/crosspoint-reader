@@ -29,6 +29,10 @@ struct BlockStyle {
   int16_t textIndent = 0;
   bool textIndentDefined = false;  // true if text-indent was explicitly set in CSS
   bool textAlignDefined = false;   // true if text-align was explicitly set in CSS
+  // Set when this block was created by a <br> element. Used by startNewTextBlock to inject
+  // a full line-height gap when the <br> block stays empty (section-break use case).
+  // NOT propagated through getCombinedBlockStyle so it can't leak into sibling blocks.
+  bool fromBrElement = false;
 
   // Combined insets (margin + padding)
   [[nodiscard]] int16_t leftInset() const { return marginLeft + paddingLeft; }
@@ -83,7 +87,8 @@ struct BlockStyle {
       result.paddingTop = static_cast<int16_t>(child.paddingTop + paddingTop);
       result.paddingBottom = static_cast<int16_t>(child.paddingBottom + paddingBottom);
     }
-
+    // fromBrElement is consumed by startNewTextBlock and should not leak through ancestor style merging.
+    result.fromBrElement = false;
     return result;
   }
 

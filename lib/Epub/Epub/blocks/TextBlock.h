@@ -15,28 +15,28 @@ class TextBlock final : public Block {
   std::vector<std::string> words;
   std::vector<int16_t> wordXpos;
   std::vector<EpdFontFamily::Style> wordStyles;
-  // Per-word focus boundary: N > 0 means the first N bytes of words[i] are rendered bold,
+  // Per-word bionic boundary: N > 0 means the first N bytes of words[i] are rendered bold,
   // the remainder in the base style. 0 means no split (whole word uses wordStyles[i]).
-  // N encodes the bold PREFIX length only — bounded to 9 codepoints (≤36 UTF-8 bytes) by
-  // FOCUS_READING_PERCENT's 1..9 clamp in ParsedText::addWord, so it always fits in uint8_t.
-  // Vector is empty when no focus splits exist anywhere in the block (zero per-word RAM cost
-  // when focus reading is disabled, or on lines that happen to contain no splittable words).
-  std::vector<uint8_t> wordFocusBoundary;
+  std::vector<uint8_t> wordBionicBoundary;
   // Pre-computed pixel offset from word start to the regular suffix, stored when boundary > 0.
   // Eliminates getTextAdvanceX from the render path. 0 when boundary == 0.
-  // Empty in lockstep with wordFocusBoundary.
-  std::vector<uint16_t> wordFocusSuffixX;
+  std::vector<uint16_t> wordBionicSuffixX;
+  // Pre-computed pixel offset from word start to the guide dot that follows it. 0 = no dot.
+  // Eliminates the guide dot as a separate TextBlock entry, saving ~12 bytes per inter-word gap.
+  std::vector<uint16_t> wordGuideDotXOffset;
   BlockStyle blockStyle;
 
  public:
   explicit TextBlock(std::vector<std::string> words, std::vector<int16_t> word_xpos,
-                     std::vector<EpdFontFamily::Style> word_styles, std::vector<uint8_t> focus_boundary,
-                     std::vector<uint16_t> focus_suffix_x, const BlockStyle& blockStyle = BlockStyle())
+                     std::vector<EpdFontFamily::Style> word_styles, std::vector<uint8_t> bionic_boundary,
+                     std::vector<uint16_t> bionic_suffix_x, std::vector<uint16_t> guide_dot_x_offset,
+                     const BlockStyle& blockStyle = BlockStyle())
       : words(std::move(words)),
         wordXpos(std::move(word_xpos)),
         wordStyles(std::move(word_styles)),
-        wordFocusBoundary(std::move(focus_boundary)),
-        wordFocusSuffixX(std::move(focus_suffix_x)),
+        wordBionicBoundary(std::move(bionic_boundary)),
+        wordBionicSuffixX(std::move(bionic_suffix_x)),
+        wordGuideDotXOffset(std::move(guide_dot_x_offset)),
         blockStyle(blockStyle) {}
   ~TextBlock() override = default;
   void setBlockStyle(const BlockStyle& blockStyle) { this->blockStyle = blockStyle; }

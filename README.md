@@ -1,197 +1,348 @@
-# CrossPoint Reader
+# biscuit.
 
-Firmware for the **Xteink X4** e-paper display reader (unaffiliated with Xteink).
-Built using **PlatformIO** and targeting the **ESP32-C3** microcontroller.
+Custom firmware for the **Xteink X4** e-paper device. Turns a $70 e-ink reader into a smart device with wireless tools, security features, communication, games, and utilities — while keeping full e-reader functionality.
 
-CrossPoint Reader is a purpose-built firmware designed to be a drop-in, fully open-source replacement for the official 
-Xteink firmware. It aims to match or improve upon the standard EPUB reading experience.
+Forked from [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader). All core reading functionality comes from CrossPoint. Biscuit builds on top of it.
 
-![](./docs/images/cover.jpg)
+![Dashboard](./docs/images/homescreen.jpeg)
 
-## Motivation
+## What is this
 
-E-paper devices are fantastic for reading, but most commercially available readers are closed systems with limited 
-customisation. The **Xteink X4** is an affordable, e-paper device, however the official firmware remains closed.
-CrossPoint exists partly as a fun side-project and partly to open up the ecosystem and truly unlock the device's
-potential.
+Biscuit treats the Xteink X4 as a general-purpose smart device, not just an e-reader. The home screen is a tile-based dashboard with live system info (battery, heap, uptime, WiFi status). Reading is one of eight categories, not the main focus.
 
-CrossPoint Reader aims to:
-* Provide a **fully open-source alternative** to the official firmware.
-* Offer a **document reader** capable of handling EPUB content on constrained hardware.
-* Support **customisable font, layout, and display** options.
-* Run purely on the **Xteink X4 hardware**.
+The 4.26" e-ink display is readable in direct sunlight, retains its image without power, and gives the device days of battery life. Seven physical buttons provide navigation without a touchscreen. WiFi and BLE 5.0 enable wireless tools. A MicroSD card stores everything.
 
-This project is **not affiliated with Xteink**; it's built as a community project.
+## Hardware
 
-## Features & Usage
+| Spec | Value |
+|------|-------|
+| SoC | ESP32-C3 (RISC-V, 160MHz) |
+| RAM | 380KB SRAM (no PSRAM) |
+| Flash | 16MB |
+| Display | 4.26" 800×480 e-ink, 1-bit mono |
+| Input | 7 buttons (4 front, 3 side) |
+| WiFi | 2.4GHz 802.11 b/g/n |
+| BLE | 5.0 (shared radio with WiFi) |
+| Storage | MicroSD (FAT32) |
+| Port | USB-C (serial + power) |
 
-- [x] EPUB parsing and rendering (EPUB 2 and EPUB 3)
-- [x] Image support within EPUB
-- [x] Saved reading position
-- [x] File explorer with file picker
-  - [x] Basic EPUB picker from root directory
-  - [x] Support nested folders
-  - [ ] EPUB picker with cover art
-- [x] Custom sleep screen
-  - [x] Cover sleep screen
-- [x] Wifi book upload
-- [x] Wifi OTA updates
-- [x] KOReader Sync integration for cross-device reading progress
-- [x] Configurable font, layout, and display options
-  - [ ] User provided fonts
-  - [ ] Full UTF support
-- [x] Screen rotation
+## Apps
 
-Multi-language support: Read EPUBs in various languages, including English, Spanish, French, German, Italian, Portuguese, Russian, Ukrainian, Polish, Swedish, Norwegian, [and more](./USER_GUIDE.md#supported-languages).
+The home screen is a dashboard of eight tiles. Everything lives under one of them.
 
-See [the user guide](./USER_GUIDE.md) for instructions on operating CrossPoint, including the
-[KOReader Sync quick setup](./USER_GUIDE.md#365-koreader-sync-quick-setup).
+| Tile | Purpose |
+|------|---------|
+| **Recon** | Passive scanning and monitoring — no transmission |
+| **Offense** | Active wireless testing, grouped into Scan → Profile → Attack → Capture |
+| **Defense** | Stealth, detection, and device hardening |
+| **Comms** | Communication and exchange |
+| **Tools** | Crypto, network, productivity, and creative utilities |
+| **Games** | Entertainment |
+| **Reader** | Ebooks, OPDS, reading stats |
+| **Settings** | Preferences, file transfer, system management |
 
-For more details about the scope of the project, see the [SCOPE.md](SCOPE.md) document.
+### Recon — scan and monitor (passive only)
+
+![Recon tools](./docs/images/recon.jpeg)
+
+All apps in Recon are read-only — they listen but never transmit.
+
+| App | What it does |
+|-----|-------------|
+| WiFi Scanner | Discover APs and connected clients |
+| BLE Scanner | Scan BLE devices, browse services and characteristics |
+| Full Sweep | Combined WiFi + BLE passive scan |
+| Packet Monitor | Monitor WiFi frames with PCAP recording |
+| Probe Sniffer | Capture WiFi probe requests |
+| Wardriving | Log access points with signal strength |
+| Crowd Density | Estimate nearby people via probe request counting |
+| Device Fingerprint | Identify device OS from probe request patterns |
+| Vendor Lookup | Identify manufacturer by MAC (OUI database on SD) |
+| AP History | Log visible access points over time to SD |
+| Network Change | Snapshot nearby devices, compare for changes |
+| Perimeter Watch | Alert when new devices appear in area |
+| BLE Proximity | Track BLE device RSSI |
+| WiFi Heat Map | RSSI mapping walkabout |
+| Signal Locator | Estimate AP position via RSSI triangulation |
+| Deauth Detector | Monitor for deauthentication frame spikes |
+
+### Offense — active wireless testing
+
+Offense opens a 2×2 sub-menu grouped into four phases. A disclaimer must be acknowledged before first use.
+
+**Scan — target discovery**
+
+| App | What it does |
+|-----|-------------|
+| WiFi Scan | Discover APs and clients |
+| BLE Scan | Discover BLE devices |
+| Full Sweep | Combined WiFi + BLE passive scan |
+| Saved Targets | Browse cached target database |
+
+**Profile — target analysis**
+
+| App | What it does |
+|-----|-------------|
+| Target Profiler | Select and analyze a target |
+| Client Enum | Devices connected to target AP |
+| Host Scanner | Find devices on local network |
+| Vuln Assessment | Check encryption and WPS settings |
+| Signal Locator | Estimate AP position from RSSI |
+
+**Attack — broadcast and testing tools**
+
+| App | What it does |
+|-----|-------------|
+| Beacon Test | Custom beacon broadcasting |
+| WiFi Test | Wireless connectivity testing |
+| Captive Portal | Network portal for testing |
+| Beacon Flood | Broadcast 30 random SSIDs |
+| SSID Clone | Clone a WiFi AP (open, same channel) |
+| BLE Spam | Proximity / Fast Pair / Swift Pair flood |
+| BLE Keyboard | HID keyboard emulation (DuckyScript over BLE) |
+| AirTag Test | Device location testing |
+| USB Keyboard | Wired DuckyScript over USB-C |
+
+**Capture — review and export**
+
+| App | What it does |
+|-----|-------------|
+| Captured Data | Handshakes, credentials, PCAPs, BLE logs |
+| Credential Viewer | View credentials captured by portal |
+| Probe Log | Recorded WiFi probe requests |
+| Scan History | Browse previously found targets |
+| Wipe Captures | Delete all captured data |
+
+### Defense — stealth and protect
+
+Ghost Mode is the headline entry — it rotates MAC, kills radios, and cleans up state in one action (replacing the old standalone MAC Changer and RF Silence apps).
+
+| App | What it does |
+|-----|-------------|
+| Ghost Mode | MAC rotate + RF kill + state cleanup, one shot |
+| Tracker Detector | Detect AirTags, SmartTags, and Tiles following you |
+| Security Sweep | Scan for cameras, trackers, rogue APs, skimmers |
+| Network Monitor | Detect rogue APs and suspicious frames |
+| Emergency SOS | SOS beacon (WiFi + BLE + Mesh) with dead man's switch |
+| Phone Tether | BLE proximity disconnect alert |
+| Quick Wipe | Erase all biscuit data from SD with verification |
+| PIN Security | Lock device with PIN, duress PIN for fake profile |
+| Screen Decoy | Fake screen to hide activity |
+| SD Encryption | Encrypt biscuit data on SD with PIN |
+
+### Comms — communicate and exchange
+
+| App | What it does |
+|-----|-------------|
+| Mesh Chat | ESP-NOW text chat, no WiFi needed, ~200m range, multi-hop relay |
+| SSID Channel | Hide short messages in WiFi network names |
+| Contact Exchange | Swap contact cards between devices via BLE |
+| Dead Drop | Temporary WiFi AP for anonymous file exchange |
+| Bulletin Board | Local anonymous message board via WiFi AP |
+
+### Tools — utilities and productivity
+
+A single tile that merges the old Network section with crypto, productivity, tracking, and creative apps.
+
+**Security & crypto**
+
+| App | What it does |
+|-----|-------------|
+| Authenticator | TOTP 2FA codes, fully offline |
+| TOTP QR | Show a 2FA code as a scannable QR |
+| Password Manager | Encrypted credentials stored on SD |
+| Medical Card | Emergency medical info persistent on e-ink |
+| Stego Notes | Hide text inside BMP images |
+
+**Network**
+
+| App | What it does |
+|-----|-------------|
+| WiFi Connect | Join a WiFi network |
+| WiFi Scanner | APs, signal, channels |
+| Host Scanner | Find devices on local network |
+| Ping | Ping a host or IP address |
+| DNS Lookup | Resolve domain names |
+| HTTP Client | Send GET/POST requests |
+| mDNS Browser | Discover local services |
+
+**Productivity**
+
+| App | What it does |
+|-----|-------------|
+| Clock | NTP clock, stopwatch, pomodoro timer |
+| Calculator | Basic calculator |
+| QR Generator | Generate QR codes from text |
+| Morse Code | Encode and decode morse |
+| Unit Converter | Convert between measurement units |
+| Cipher Tools | ROT13, Caesar, Vigenere, XOR |
+| OTP Generator | One-time pad random number pages |
+
+**Tracking & logging**
+
+| App | What it does |
+|-----|-------------|
+| Event Logger | Timestamped notes with WiFi location tagging |
+| Flashcards | Study decks loaded from CSV on SD |
+| Habit Tracker | Daily habit checklist with streak tracking |
+| Breadcrumb Trail | Record and retrace your path using WiFi fingerprints |
+| Vehicle Finder | Find your parked car via WiFi fingerprint matching |
+| Transit Alert | Alert when approaching a saved transit stop |
+
+**Creative**
+
+| App | What it does |
+|-----|-------------|
+| Etch-A-Sketch | Draw on the e-ink screen, save as BMP |
+| Barcode Generator | Code 128 / Code 39 / EAN-13 |
+| Key Copier | Draw key profiles from bitting codes |
+| WiFi QR Share | Share WiFi credentials as a QR code |
+| File Browser | Browse and view files on SD card |
+| Countdown | Big countdown timer |
+
+### Games
+
+![Tetris on e-ink](./docs/images/tetris.jpeg)
+
+Casino (slots, blackjack, roulette, coin flip, higher/lower, loot box), Minesweeper, Sudoku, Chess (with bot), Snake, Tetris, Maze, Dice Roller, Game of Life, Voronoi, Matrix Rain.
+
+### Reader
+
+| App | What it does |
+|-----|-------------|
+| Open Book | Browse and open an ebook |
+| Recent Books | Continue where you left off |
+| OPDS Browser | Download books from OPDS servers |
+| Reading Stats | Pages read, books completed, streaks |
+| Browse Files | File manager for the SD card |
+
+Full EPUB 2/3 rendering, KOReader Sync, and Calibre wireless transfer are inherited from CrossPoint.
+
+### Settings — system and configuration
+
+Promoted to a top-level tile from the old System section.
+
+| App | What it does |
+|-----|-------------|
+| Settings | Display, reader, controls, system configuration |
+| WiFi Transfer | Upload/download files via WiFi (STA, AP, or Calibre) |
+| USB Storage | Share the SD card as a USB mass-storage drive |
+| Task Manager | View heap, uptime, and activity stack |
+| Battery | Battery level with history graph |
+| Device Info | Chip, flash, RAM, firmware, WiFi, screen info |
+| Background | Radio state, SD status, active timers |
+| Automation | WiFi geofence triggers and scheduled tasks |
+
+## Themes
+
+Three UI themes, selectable in Settings:
+
+- **Classic** — original CrossPoint style
+- **Lyra** — rounded elements, modern feel (default)
+- **Military** — inverted headers, sharp corners, dashed separators, uppercase labels
+
+## SD card structure
+
+```
+/biscuit/
+  portals/        # HTML templates for captive portal
+  ducky/          # DuckyScript files for HID keyboard
+  pcap/           # Packet captures
+  scans/          # Network scan results
+  logs/           # WiFi/BLE scan logs, AP history, event logs
+  drawings/       # Etch-A-Sketch saved BMPs
+  trails/         # Breadcrumb trail data
+  snapshots/      # Network change snapshots
+  flashcards/     # Flashcard decks (CSV)
+  creds.csv       # Captured portal credentials
+  medical.dat     # Medical card info
+  totp.dat        # TOTP authenticator secrets (encrypted)
+  casino.dat      # Casino credits
+  habits.dat      # Habit tracker data
+  security.dat    # PIN hashes
+  automation.dat  # Automation rules
+  oui.txt         # IEEE OUI vendor database (user-provided)
+```
 
 ## Installing
 
-### Web (latest firmware)
+### Web flasher (recommended)
 
-1. Connect your Xteink X4 to your computer via USB-C and wake/unlock the device
-2. Go to https://xteink.dve.al/ and click "Flash CrossPoint firmware"
+1. Connect your Xteink X4 via USB-C data cable (not charge-only)
+2. Wake the device by pressing Power
+3. Go to https://xteink.dve.al/ and flash the firmware
 
-To revert back to the official firmware, you can flash the latest official firmware from https://xteink.dve.al/, or swap
-back to the other partition using the "Swap boot partition" button here https://xteink.dve.al/debug.
-
-### Web (specific firmware version)
-
-1. Connect your Xteink X4 to your computer via USB-C
-2. Download the `firmware.bin` file from the release of your choice via the [releases page](https://github.com/crosspoint-reader/crosspoint-reader/releases)
-3. Go to https://xteink.dve.al/ and flash the firmware file using the "OTA fast flash controls" section
-
-To revert back to the official firmware, you can flash the latest official firmware from https://xteink.dve.al/, or swap
-back to the other partition using the "Swap boot partition" button here https://xteink.dve.al/debug.
-
-### Command line (specific firmware version)
-
-1. Install [`esptool`](https://github.com/espressif/esptool) :
-```bash
-pip install esptool
-```
-2. Download the `firmware.bin` file from the release of your choice via the [releases page](https://github.com/crosspoint-reader/crosspoint-reader/releases)
-3. Connect your Xteink X4 to your computer via USB-C.
-4. Note the device location. On Linux, run `dmesg` after connecting. On MacOS, run :
-```bash
-log stream --predicate 'subsystem == "com.apple.iokit"' --info
-```
-5. Flash the firmware :
-```bash
-esptool.py --chip esp32c3 --port /dev/ttyACM0 --baud 921600 write_flash 0x10000 /path/to/firmware.bin
-```
-Change `/dev/ttyACM0` to the device for your system.
+To revert to stock firmware, use the same site or press "Swap boot partition" at https://xteink.dve.al/debug.
 
 ### Manual
 
-See [Development](#development) below.
+```bash
+git clone --recursive https://github.com/yattsu/biscuit
+cd biscuit
+pio run --target upload
+```
 
 ## Development
 
 ### Prerequisites
 
-* **PlatformIO Core** (`pio`) or **VS Code + PlatformIO IDE**
-* Python 3.8+
-* USB-C cable for flashing the ESP32-C3
-* Xteink X4
+- PlatformIO Core or VS Code + PlatformIO IDE
+- Python 3.8+
+- USB-C data cable
+- Xteink X4
 
-### Checking out the code
+### Building
 
-CrossPoint uses PlatformIO for building and flashing the firmware. To get started, clone the repository:
-
-```
-git clone --recursive https://github.com/crosspoint-reader/crosspoint-reader
-
-# Or, if you've already cloned without --recursive:
-git submodule update --init --recursive
+```powershell
+# Windows PowerShell
+$env:PYTHONUTF8=1
+pio run -j 16
 ```
 
-### Flashing your device
-
-Connect your Xteink X4 to your computer via USB-C and run the following command.
-
-```sh
-pio run --target upload
+```bash
+# Linux / macOS
+pio run -j 16
 ```
+
+### Adding translations
+
+Translations live in `lib/I18n/translations/`. Each language is a YAML file. Add or edit strings, then regenerate:
+
+```bash
+python3 scripts/gen_i18n.py lib/I18n/translations lib/I18n/
+```
+
+See [i18n docs](./docs/i18n.md) for details.
+
 ### Debugging
 
-After flashing the new features, it’s recommended to capture detailed logs from the serial port.
-
-First, make sure all required Python packages are installed:
-
-```python
+```bash
 python3 -m pip install pyserial colorama matplotlib
-```
-after that run the script:
-```sh
-# For Linux
-# This was tested on Debian and should work on most Linux systems.
 python3 scripts/debugging_monitor.py
-
-# For macOS
-python3 scripts/debugging_monitor.py /dev/cu.usbmodem2101
-```
-Minor adjustments may be required for Windows.
-
-## Internals
-
-CrossPoint Reader is pretty aggressive about caching data down to the SD card to minimise RAM usage. The ESP32-C3 only
-has ~380KB of usable RAM, so we have to be careful. A lot of the decisions made in the design of the firmware were based
-on this constraint.
-
-### Data caching
-
-The first time chapters of a book are loaded, they are cached to the SD card. Subsequent loads are served from the 
-cache. This cache directory exists at `.crosspoint` on the SD card. The structure is as follows:
-
-
-```
-.crosspoint/
-├── epub_12471232/       # Each EPUB is cached to a subdirectory named `epub_<hash>`
-│   ├── progress.bin     # Stores reading progress (chapter, page, etc.)
-│   ├── cover.bmp        # Book cover image (once generated)
-│   ├── book.bin         # Book metadata (title, author, spine, table of contents, etc.)
-│   └── sections/        # All chapter data is stored in the sections subdirectory
-│       ├── 0.bin        # Chapter data (screen count, all text layout info, etc.)
-│       ├── 1.bin        #     files are named by their index in the spine
-│       └── ...
-│
-└── epub_189013891/
 ```
 
-Deleting the `.crosspoint` directory will clear the entire cache. 
+The debug monitor shows color-coded logs and a real-time memory graph.
 
-Due the way it's currently implemented, the cache is not automatically cleared when a book is deleted and moving a book
-file will use a new cache directory, resetting the reading progress.
+### Architecture
 
-For more details on the internal file structures, see the [file formats document](./docs/file-formats.md).
+The firmware uses an activity-based UI architecture. Every screen is an `Activity` subclass with `onEnter()`, `loop()`, `render()`, and `onExit()`. Activities are managed by `ActivityManager` (push/pop/replace). WiFi and BLE share one radio, arbitrated by `RadioManager`.
 
-## Contributing
+See [architecture docs](./docs/contributing/architecture.md) for the full overview.
 
-Contributions are very welcome!
+## Upstream
 
-If you are new to the codebase, start with the [contributing docs](./docs/contributing/README.md).
+Biscuit tracks CrossPoint Reader as upstream. To sync:
 
-If you're looking for a way to help out, take a look at the [ideas discussion board](https://github.com/crosspoint-reader/crosspoint-reader/discussions/categories/ideas).
-If there's something there you'd like to work on, leave a comment so that we can avoid duplicated effort.
+```bash
+git remote add upstream https://github.com/crosspoint-reader/crosspoint-reader.git
+git fetch upstream
+git merge upstream/master
+```
 
-Everyone here is a volunteer, so please be respectful and patient. For more details on our governance and community 
-principles, please see [GOVERNANCE.md](GOVERNANCE.md).
+## Credits
 
-### To submit a contribution:
+Built on [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) by the CrossPoint contributors. CrossPoint was inspired by [diy-esp32-epub-reader](https://github.com/atomic14/diy-esp32-epub-reader) by atomic14.
 
-1. Fork the repo
-2. Create a branch (`feature/dithering-improvement`)
-3. Make changes
-4. Submit a PR
+## License
 
----
-
-CrossPoint Reader is **not affiliated with Xteink or any manufacturer of the X4 hardware**.
-
-Huge shoutout to [**diy-esp32-epub-reader** by atomic14](https://github.com/atomic14/diy-esp32-epub-reader), which was a project I took a lot of inspiration from as I
-was making CrossPoint.
+MIT

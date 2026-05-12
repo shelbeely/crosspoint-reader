@@ -1,12 +1,22 @@
 #include "KOReaderSyncClient.h"
 
 #include <ArduinoJson.h>
+#ifdef SIMULATOR
+#include <ArduinoJsonStringCompat.h>
+#endif
+#include <HTTPClient.h>
 #include <Logging.h>
+#ifdef SIMULATOR
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#else
 #include <base64.h>
 #include <esp_crt_bundle.h>
 #include <esp_http_client.h>
+#endif
 
 #include <ctime>
+#include <memory>
 
 #include "KOReaderCredentialStore.h"
 
@@ -17,17 +27,32 @@ namespace {
 constexpr char DEVICE_NAME[] = "CrossPoint";
 constexpr char DEVICE_ID[] = "crosspoint-reader";
 
-// Small TLS buffers to fit in ESP32-C3's limited heap (~46KB free after WiFi).
-// KOSync payloads are tiny JSON (<1KB), so 2KB buffers are sufficient.
-// Default 16KB buffers cause OOM during TLS handshake.
-constexpr int HTTP_BUF_SIZE = 2048;
-
 // Cloudflare tunnels send a 3-cert Google Trust Services chain. During the TLS handshake
 // mbedTLS makes many small allocations that collectively consume ~48KB of heap. With only
 // ~50KB free after WiFi connects, the session drove min-free-ever down to 2600 bytes before
 // failing with MBEDTLS_ERR_X509_ALLOC_FAILED (-0x2880). Check total free heap (not max
 // contiguous block) because the failure mode is aggregate exhaustion, not one large alloc.
 constexpr uint32_t MIN_HEAP_FOR_TLS = 55000;
+
+#ifdef SIMULATOR
+void addAuthHeaders(HTTPClient& http) {
+  http.addHeader("Accept", "application/vnd.koreader.v1+json");
+  http.addHeader("x-auth-user", KOREADER_STORE.getUsername().c_str());
+  http.addHeader("x-auth-key", KOREADER_STORE.getMd5Password().c_str());
+  http.setAuthorization(KOREADER_STORE.getUsername().c_str(), KOREADER_STORE.getPassword().c_str());
+}
+
+bool isHttpsUrl(const std::string& url) { return url.rfind("https://", 0) == 0; }
+#else
+// Small TLS buffers to fit in ESP32-C3's limited heap (~46KB free after WiFi).
+// KOSync payloads are tiny JSON (<1KB), so 2KB buffers are sufficient.
+// Default 16KB buffers cause OOM during TLS handshake.
+constexpr int HTTP_BUF_SIZE = 2048;
+
+void logHeapStats(const char* phase, const char* url = nullptr) {
+  LOG_DBG("KOSync", "%s%s%s heap: free=%u min=%u max_alloc=%u", phase, url ? " " : "", url ? url : "",
+          (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
+}
 
 // Response buffer for reading HTTP body
 struct ResponseBuffer {
@@ -99,6 +124,7 @@ esp_http_client_handle_t createClient(const char* url, ResponseBuffer* buf,
 
   return client;
 }
+#endif
 }  // namespace
 
 KOReaderSyncClient::Error KOReaderSyncClient::authenticate() {
@@ -116,13 +142,41 @@ KOReaderSyncClient::Error KOReaderSyncClient::authenticate() {
     return LOW_MEMORY;
   }
 
+#ifdef SIMULATOR
+  HTTPClient http;
+  std::unique_ptr<WiFiClientSecure> secureClient;
+  WiFiClient plainClient;
+
+  if (isHttpsUrl(url)) {
+    secureClient.reset(new WiFiClientSecure);
+    secureClient->setInsecure();
+    http.begin(*secureClient, url.c_str());
+  } else {
+    http.begin(plainClient, url.c_str());
+  }
+  addAuthHeaders(http);
+
+  const int httpCode = http.GET();
+  lastHttpCode = httpCode;
+  http.end();
+
+  LOG_DBG("KOSync", "Auth response: %d", httpCode);
+
+  if (httpCode == 200) return OK;
+  if (httpCode == 401) return AUTH_FAILED;
+  if (httpCode < 0) return NETWORK_ERROR;
+  return SERVER_ERROR;
+#else
   ResponseBuffer buf;
+  logHeapStats("Before auth client", url.c_str());
   esp_http_client_handle_t client = createClient(url.c_str(), &buf);
   if (!client) return NETWORK_ERROR;
 
+  logHeapStats("Before auth perform");
   esp_err_t err = esp_http_client_perform(client);
   const int httpCode = esp_http_client_get_status_code(client);
   lastHttpCode = httpCode;
+  logHeapStats("After auth perform");
   esp_http_client_cleanup(client);
 
   LOG_DBG("KOSync", "Auth response: %d (err: %d)", httpCode, err);
@@ -131,6 +185,7 @@ KOReaderSyncClient::Error KOReaderSyncClient::authenticate() {
   if (httpCode == 200) return OK;
   if (httpCode == 401) return AUTH_FAILED;
   return SERVER_ERROR;
+#endif
 }
 
 KOReaderSyncClient::Error KOReaderSyncClient::getProgress(const std::string& documentHash,
@@ -149,13 +204,64 @@ KOReaderSyncClient::Error KOReaderSyncClient::getProgress(const std::string& doc
     return LOW_MEMORY;
   }
 
+#ifdef SIMULATOR
+  HTTPClient http;
+  std::unique_ptr<WiFiClientSecure> secureClient;
+  WiFiClient plainClient;
+
+  if (isHttpsUrl(url)) {
+    secureClient.reset(new WiFiClientSecure);
+    secureClient->setInsecure();
+    http.begin(*secureClient, url.c_str());
+  } else {
+    http.begin(plainClient, url.c_str());
+  }
+  addAuthHeaders(http);
+
+  const int httpCode = http.GET();
+  lastHttpCode = httpCode;
+
+  if (httpCode == 200) {
+    String responseBody = http.getString();
+    http.end();
+
+    JsonDocument doc;
+    const DeserializationError error = deserializeJson(doc, responseBody);
+
+    if (error) {
+      LOG_ERR("KOSync", "JSON parse failed: %s", error.c_str());
+      return JSON_ERROR;
+    }
+
+    outProgress.document = documentHash;
+    outProgress.progress = doc["progress"].as<std::string>();
+    outProgress.percentage = doc["percentage"].as<float>();
+    outProgress.device = doc["device"].as<std::string>();
+    outProgress.deviceId = doc["device_id"].as<std::string>();
+    outProgress.timestamp = doc["timestamp"].as<int64_t>();
+
+    LOG_DBG("KOSync", "Got progress: %.2f%% at %s", outProgress.percentage * 100, outProgress.progress.c_str());
+    return OK;
+  }
+
+  http.end();
+  LOG_DBG("KOSync", "Get progress response: %d", httpCode);
+
+  if (httpCode == 401) return AUTH_FAILED;
+  if (httpCode == 404) return NOT_FOUND;
+  if (httpCode < 0) return NETWORK_ERROR;
+  return SERVER_ERROR;
+#else
   ResponseBuffer buf;
+  logHeapStats("Before get client", url.c_str());
   esp_http_client_handle_t client = createClient(url.c_str(), &buf);
   if (!client) return NETWORK_ERROR;
 
+  logHeapStats("Before get perform");
   esp_err_t err = esp_http_client_perform(client);
   const int httpCode = esp_http_client_get_status_code(client);
   lastHttpCode = httpCode;
+  logHeapStats("After get perform");
   esp_http_client_cleanup(client);
 
   LOG_DBG("KOSync", "Get progress response: %d (err: %d)", httpCode, err);
@@ -185,6 +291,7 @@ KOReaderSyncClient::Error KOReaderSyncClient::getProgress(const std::string& doc
   if (httpCode == 401) return AUTH_FAILED;
   if (httpCode == 404) return NOT_FOUND;
   return SERVER_ERROR;
+#endif
 }
 
 KOReaderSyncClient::Error KOReaderSyncClient::updateProgress(const KOReaderProgress& progress) {
@@ -215,7 +322,34 @@ KOReaderSyncClient::Error KOReaderSyncClient::updateProgress(const KOReaderProgr
 
   LOG_DBG("KOSync", "Request body: %s", body.c_str());
 
+#ifdef SIMULATOR
+  HTTPClient http;
+  std::unique_ptr<WiFiClientSecure> secureClient;
+  WiFiClient plainClient;
+
+  if (isHttpsUrl(url)) {
+    secureClient.reset(new WiFiClientSecure);
+    secureClient->setInsecure();
+    http.begin(*secureClient, url.c_str());
+  } else {
+    http.begin(plainClient, url.c_str());
+  }
+  addAuthHeaders(http);
+  http.addHeader("Content-Type", "application/json");
+
+  const int httpCode = http.PUT(body.c_str());
+  lastHttpCode = httpCode;
+  http.end();
+
+  LOG_DBG("KOSync", "Update progress response: %d", httpCode);
+
+  if (httpCode == 200 || httpCode == 202) return OK;
+  if (httpCode == 401) return AUTH_FAILED;
+  if (httpCode < 0) return NETWORK_ERROR;
+  return SERVER_ERROR;
+#else
   ResponseBuffer buf;
+  logHeapStats("Before put client", url.c_str());
   esp_http_client_handle_t client = createClient(url.c_str(), &buf, HTTP_METHOD_PUT);
   if (!client) return NETWORK_ERROR;
 
@@ -226,9 +360,12 @@ KOReaderSyncClient::Error KOReaderSyncClient::updateProgress(const KOReaderProgr
     return NETWORK_ERROR;
   }
 
+  LOG_DBG("KOSync", "PUT body bytes=%u", static_cast<unsigned>(body.length()));
+  logHeapStats("Before put perform");
   esp_err_t err = esp_http_client_perform(client);
   const int httpCode = esp_http_client_get_status_code(client);
   lastHttpCode = httpCode;
+  logHeapStats("After put perform");
   esp_http_client_cleanup(client);
 
   LOG_DBG("KOSync", "Update progress response: %d (err: %d)", httpCode, err);
@@ -237,6 +374,7 @@ KOReaderSyncClient::Error KOReaderSyncClient::updateProgress(const KOReaderProgr
   if (httpCode == 200 || httpCode == 202) return OK;
   if (httpCode == 401) return AUTH_FAILED;
   return SERVER_ERROR;
+#endif
 }
 
 const char* KOReaderSyncClient::errorString(Error error) {

@@ -16,12 +16,19 @@ class FileBrowserActivity final : public Activity {
  private:
   // Deletion
   void clearFileMetadata(const std::string& fullPath);
+  void promptDeleteFile(const std::string& fullPath, const std::string& entry);
+  void promptDeleteDirectory(const std::string& fullPath, const std::string& entry);
+  void pinSleepFavorite(const std::string& fullPath);
+  void unpinSleepFavorite();
+  bool isPinnedSleepFavorite(const std::string& fullPath) const;
+  void showFileActionMenu(const std::string& entry, bool ignoreInitialConfirmRelease = false);
 
   ButtonNavigator buttonNavigator;
 
   size_t selectorIndex = 0;
 
   bool lockLongPressBack = false;
+  bool longPressConfirmHandled = false;
   // True when this activity was entered while Confirm was already held; we must swallow the next
   // release so we don't immediately auto-open the first entry.
   bool lockNextConfirmRelease = false;

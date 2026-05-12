@@ -1,6 +1,9 @@
 #include "JsonSettingsIO.h"
 
 #include <ArduinoJson.h>
+#ifdef SIMULATOR
+#include <ArduinoJsonStringCompat.h>
+#endif
 #include <HalStorage.h>
 #include <Logging.h>
 #include <ObfuscationUtils.h>
@@ -70,12 +73,15 @@ void applyLegacyStatusBarSettings(CrossPointSettings& settings) {
 bool JsonSettingsIO::saveState(const CrossPointState& s, const char* path) {
   JsonDocument doc;
   doc["openEpubPath"] = s.openEpubPath;
+  doc["favoriteSleepImagePath"] = s.favoriteSleepImagePath;
   JsonArray recentArr = doc["recentSleepImages"].to<JsonArray>();
   for (int i = 0; i < CrossPointState::SLEEP_RECENT_COUNT; i++) recentArr.add(s.recentSleepImages[i]);
   doc["recentSleepPos"] = s.recentSleepPos;
   doc["recentSleepFill"] = s.recentSleepFill;
   doc["readerActivityLoadCount"] = s.readerActivityLoadCount;
   doc["lastSleepFromReader"] = s.lastSleepFromReader;
+  doc["pendingBookmarkSpine"] = s.pendingBookmarkSpine;
+  doc["pendingBookmarkProgress"] = s.pendingBookmarkProgress;
 
   String json;
   serializeJson(doc, json);
@@ -91,6 +97,7 @@ bool JsonSettingsIO::loadState(CrossPointState& s, const char* json) {
   }
 
   s.openEpubPath = doc["openEpubPath"] | std::string("");
+  s.favoriteSleepImagePath = doc["favoriteSleepImagePath"] | std::string("");
   memset(s.recentSleepImages, 0, sizeof(s.recentSleepImages));
   JsonArrayConst recentArr = doc["recentSleepImages"];
   const int actualCount = recentArr.isNull() ? 0
@@ -110,6 +117,8 @@ bool JsonSettingsIO::loadState(CrossPointState& s, const char* json) {
   }
   s.readerActivityLoadCount = doc["readerActivityLoadCount"] | static_cast<uint8_t>(0);
   s.lastSleepFromReader = doc["lastSleepFromReader"] | false;
+  s.pendingBookmarkSpine = doc["pendingBookmarkSpine"] | static_cast<uint16_t>(UINT16_MAX);
+  s.pendingBookmarkProgress = doc["pendingBookmarkProgress"] | static_cast<float>(-1.0f);
   return true;
 }
 
@@ -140,16 +149,18 @@ bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path)
   doc["frontButtonConfirm"] = s.frontButtonConfirm;
   doc["frontButtonLeft"] = s.frontButtonLeft;
   doc["frontButtonRight"] = s.frontButtonRight;
+  // Reader-specific front button remap.
+  doc["readerFrontButtonsEnabled"] = s.readerFrontButtonsEnabled;
+  doc["readerFrontButtonBack"] = s.readerFrontButtonBack;
+  doc["readerFrontButtonConfirm"] = s.readerFrontButtonConfirm;
+  doc["readerFrontButtonLeft"] = s.readerFrontButtonLeft;
+  doc["readerFrontButtonRight"] = s.readerFrontButtonRight;
   // Font family — uses dynamic getter/setter in SettingsList so the generic loop skips it.
   doc["fontFamily"] = s.fontFamily;
   // SD card font family name — not in SettingsList, save manually
   if (s.sdFontFamilyName[0] != '\0') {
     doc["sdFontFamilyName"] = s.sdFontFamilyName;
   }
-
-  // Language -- managed by LanguageSelectActivity, not in SettingsList.
-  // Stored as ISO code string ("EN", "DE", ...) for stability across enum reorders.
-  doc["language"] = (s.language < getLanguageCount()) ? LANGUAGE_CODES[s.language] : "EN";
 
   // Language -- managed by LanguageSelectActivity, not in SettingsList.
   // Stored as ISO code string ("EN", "DE", ...) for stability across enum reorders.
@@ -221,7 +232,6 @@ bool JsonSettingsIO::loadSettings(CrossPointSettings& s, const char* json, bool*
       s.*(info.valuePtr) = v;
     }
   }
-
   // Front button remap — managed by RemapFrontButtons sub-activity, not in SettingsList.
   using S = CrossPointSettings;
   s.frontButtonBack =
@@ -233,6 +243,17 @@ bool JsonSettingsIO::loadSettings(CrossPointSettings& s, const char* json, bool*
   s.frontButtonRight =
       clamp(doc["frontButtonRight"] | (uint8_t)S::FRONT_HW_RIGHT, S::FRONT_BUTTON_HARDWARE_COUNT, S::FRONT_HW_RIGHT);
   CrossPointSettings::validateFrontButtonMapping(s);
+  // Reader-specific front button remap.
+  s.readerFrontButtonsEnabled = clamp(doc["readerFrontButtonsEnabled"] | (uint8_t)0, (uint8_t)2, (uint8_t)0);
+  s.readerFrontButtonBack =
+      clamp(doc["readerFrontButtonBack"] | (uint8_t)S::FRONT_HW_BACK, S::FRONT_BUTTON_HARDWARE_COUNT, S::FRONT_HW_BACK);
+  s.readerFrontButtonConfirm = clamp(doc["readerFrontButtonConfirm"] | (uint8_t)S::FRONT_HW_CONFIRM,
+                                     S::FRONT_BUTTON_HARDWARE_COUNT, S::FRONT_HW_CONFIRM);
+  s.readerFrontButtonLeft =
+      clamp(doc["readerFrontButtonLeft"] | (uint8_t)S::FRONT_HW_LEFT, S::FRONT_BUTTON_HARDWARE_COUNT, S::FRONT_HW_LEFT);
+  s.readerFrontButtonRight = clamp(doc["readerFrontButtonRight"] | (uint8_t)S::FRONT_HW_RIGHT,
+                                   S::FRONT_BUTTON_HARDWARE_COUNT, S::FRONT_HW_RIGHT);
+  CrossPointSettings::validateReaderFrontButtonMapping(s);
 
   // Font family — uses dynamic getter/setter in SettingsList so the generic loop skips it.
   s.fontFamily = clamp(doc["fontFamily"] | (uint8_t)0, CrossPointSettings::BUILTIN_FONT_COUNT, 0);

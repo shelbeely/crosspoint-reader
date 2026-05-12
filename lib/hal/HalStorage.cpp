@@ -7,6 +7,8 @@
 
 #include <cassert>
 
+#include "HalSpiBus.h"
+
 #define SDCard SDCardManager::getInstance()
 
 HalStorage HalStorage::instance;
@@ -18,7 +20,10 @@ HalStorage::HalStorage() {
 
 // begin() and ready() are only called from setup, no need to acquire mutex for them
 
-bool HalStorage::begin() { return SDCard.begin(); }
+bool HalStorage::begin() {
+  HalSpiBus::Lock spiLock;
+  return SDCard.begin();
+}
 
 bool HalStorage::ready() const { return SDCard.ready(); }
 
@@ -26,8 +31,11 @@ bool HalStorage::ready() const { return SDCard.ready(); }
 
 class HalStorage::StorageLock {
  public:
-  StorageLock() { xSemaphoreTake(HalStorage::getInstance().storageMutex, portMAX_DELAY); }
+  StorageLock() : spiLock() { xSemaphoreTake(HalStorage::getInstance().storageMutex, portMAX_DELAY); }
   ~StorageLock() { xSemaphoreGive(HalStorage::getInstance().storageMutex); }
+
+ private:
+  HalSpiBus::Lock spiLock;
 };
 
 #define HAL_STORAGE_WRAPPED_CALL(method, ...) \
@@ -148,6 +156,7 @@ int HalFile::read(void* buf, size_t count) { HAL_FILE_WRAPPED_CALL(read, buf, co
 int HalFile::read() { HAL_FILE_WRAPPED_CALL(read, ); }
 size_t HalFile::write(const void* buf, size_t count) { HAL_FILE_WRAPPED_CALL(write, buf, count); }
 size_t HalFile::write(uint8_t b) { HAL_FILE_WRAPPED_CALL(write, b); }
+bool HalFile::sync() { HAL_FILE_WRAPPED_CALL(sync, ); }
 bool HalFile::rename(const char* newPath) { HAL_FILE_WRAPPED_CALL(rename, newPath); }
 bool HalFile::isDirectory() const { HAL_FILE_FORWARD_CALL(isDirectory, ); }  // already thread-safe, no need to wrap
 void HalFile::rewindDirectory() { HAL_FILE_WRAPPED_CALL(rewindDirectory, ); }

@@ -20,6 +20,7 @@
 #include "activities/network/WifiSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/RadioManager.h"
 
 namespace {
 void syncTimeWithNTP() {
@@ -51,10 +52,7 @@ void wifiOff() {
   if (esp_sntp_enabled()) {
     esp_sntp_stop();
   }
-  WiFi.disconnect(false);
-  delay(100);
-  WiFi.mode(WIFI_OFF);
-  delay(100);
+  RADIO.shutdown();
 }
 }  // namespace
 
@@ -142,7 +140,17 @@ void KOReaderSyncActivity::performSync() {
     RenderLock lock(*this);
     statusMessage = tr(STR_FETCH_PROGRESS);
   }
-  requestUpdateAndWait();
+  if (requestUpdateAndWait() != RequestUpdateResult::Rendered) {
+    LOG_ERR("KOSync", "Fetch progress screen could not be rendered synchronously; aborting sync");
+    wifiOff();
+    {
+      RenderLock lock(*this);
+      state = SYNC_FAILED;
+      statusMessage = "Render update failed";
+    }
+    requestUpdate(true);
+    return;
+  }
 
   // Fetch remote progress
   const auto result = KOReaderSyncClient::getProgress(documentHash, remoteProgress);
@@ -259,7 +267,17 @@ void KOReaderSyncActivity::performUpload() {
     state = UPLOADING;
     statusMessage = tr(STR_UPLOAD_PROGRESS);
   }
-  requestUpdateAndWait();
+  if (requestUpdateAndWait() != RequestUpdateResult::Rendered) {
+    LOG_ERR("KOSync", "Upload progress screen could not be rendered synchronously; aborting upload");
+    wifiOff();
+    {
+      RenderLock lock(*this);
+      state = SYNC_FAILED;
+      statusMessage = "Render update failed";
+    }
+    requestUpdate(true);
+    return;
+  }
 
   // localProgress was pre-computed in EpubReaderActivity before the Epub was released.
   KOReaderProgress progress;
@@ -396,7 +414,7 @@ void KOReaderSyncActivity::render(RenderLock&&) {
     renderer.drawText(UI_10_FONT_ID, 20, optionY + optionHeight, tr(STR_UPLOAD_LOCAL), selectedOption != 1);
 
     // Bottom button hints
-    const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+    const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
     renderer.displayBuffer();
     return;

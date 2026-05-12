@@ -1,6 +1,12 @@
+---
+title: Getting Started
+parent: Contributing
+nav_order: 1
+---
+
 # Getting Started
 
-This guide helps you build and run CrossPoint locally.
+This guide helps you build and run Biscuit locally.
 
 ## Prerequisites
 

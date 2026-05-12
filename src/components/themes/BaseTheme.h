@@ -8,6 +8,7 @@
 
 class GfxRenderer;
 struct RecentBook;
+struct BookReadingStats;
 
 struct Rect {
   int x;
@@ -72,7 +73,21 @@ struct ThemeMetrics {
   int keyboardKeyCornerRadius;
 };
 
-enum UIIcon { Folder, Text, Image, Book, File, Recent, Settings, Transfer, Library, Wifi, Hotspot };
+enum UIIcon {
+  Folder,
+  Text,
+  Image,
+  Book,
+  BookmarkIcon,
+  File,
+  Recent,
+  Settings,
+  Transfer,
+  Library,
+  Wifi,
+  Hotspot,
+  Chart
+};
 
 enum class KeyboardKeyType { Normal, Shift, Mode, Space, Del, Ok, Disabled };
 
@@ -96,8 +111,8 @@ constexpr ThemeMetrics values = {.batteryWidth = 15,
                                  .scrollBarWidth = 4,
                                  .scrollBarRightOffset = 5,
                                  .homeTopPadding = 40,
-                                 .homeCoverHeight = 400,
-                                 .homeCoverTileHeight = 400,
+                                 .homeCoverHeight = 370,
+                                 .homeCoverTileHeight = 370,
                                  .homeRecentBooksCount = 1,
                                  .homeContinueReadingInMenu = false,
                                  .homeMenuTopOffset = 10,
@@ -139,7 +154,8 @@ class BaseTheme {
                         const std::function<std::string(int index)>& rowSubtitle = nullptr,
                         const std::function<UIIcon(int index)>& rowIcon = nullptr,
                         const std::function<std::string(int index)>& rowValue = nullptr, bool highlightValue = false,
-                        const std::function<bool(int index)>& rowDimmed = nullptr) const;
+                        const std::function<bool(int index)>& rowDimmed = nullptr,
+                        const std::function<bool(int index)>& isHeader = nullptr) const;
   virtual void drawHeader(const GfxRenderer& renderer, Rect rect, const char* title,
                           const char* subtitle = nullptr) const;
   virtual void drawSubHeader(const GfxRenderer& renderer, Rect rect, const char* label,
@@ -148,15 +164,17 @@ class BaseTheme {
                           bool selected) const;
   virtual void drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
                                    const int selectorIndex, bool& coverRendered, bool& coverBufferStored,
-                                   bool& bufferRestored, std::function<bool()> storeCoverBuffer) const;
+                                   bool& bufferRestored, std::function<bool()> storeCoverBuffer,
+                                   const BookReadingStats* stats = nullptr, float progressPercent = -1.0f) const;
   virtual void drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
                               const std::function<std::string(int index)>& buttonLabel,
                               const std::function<UIIcon(int index)>& rowIcon) const;
   virtual Rect drawPopup(const GfxRenderer& renderer, const char* message) const;
   virtual void fillPopupProgress(const GfxRenderer& renderer, const Rect& layout, const int progress) const;
-  void drawStatusBar(GfxRenderer& renderer, const float bookProgress, const int currentPage, const int pageCount,
-                     std::string title, const int paddingBottom = 0, const int textYOffset = 0) const;
-  void drawHelpText(const GfxRenderer& renderer, Rect rect, const char* label) const;
+  virtual void drawStatusBar(GfxRenderer& renderer, const float bookProgress, const int currentPage,
+                             const int pageCount, std::string title, const int paddingBottom = 0,
+                             const int textYOffset = 0, const bool isPageBookmarked = false) const;
+  virtual void drawHelpText(const GfxRenderer& renderer, Rect rect, const char* label) const;
   virtual void drawTextField(const GfxRenderer& renderer, Rect rect, const int textWidth, bool cursorMode = false,
                              int contentStartX = 0, int contentWidth = 0) const;
   virtual void drawKeyboardKey(const GfxRenderer& renderer, Rect rect, const char* label, const bool isSelected,
@@ -168,4 +186,14 @@ class BaseTheme {
   static constexpr int batteryPercentSpacing = 4;
   static void drawBatteryOutline(const GfxRenderer& renderer, int x, int y, int battWidth, int rectHeight);
   static void drawBatteryLightningBolt(const GfxRenderer& renderer, int boltX, int boltY);
+
+  // Animated 3-dot loading spinner for unknown-duration operations.
+  // centerX/centerY — center of the dot row
+  // label          — caption drawn above the dots (e.g. "SCANNING..."). May be nullptr to omit.
+  // frame          — animation frame index. Caller advances it on a 600ms timer.
+  //                  frame % 3 selects which dot is filled; the others are outlined.
+  virtual void drawSpinner(const GfxRenderer& renderer, int centerX, int centerY, const char* label, int frame) const;
+
+  static bool drawArrowIfNeeded(const GfxRenderer& renderer, const char* label, int cx, int cy, int size = 5,
+                                bool black = true);
 };

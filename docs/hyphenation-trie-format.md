@@ -1,6 +1,11 @@
+---
+title: Hyphenation Trie Format
+nav_order: 9
+---
+
 # Hypher Binary Tries
 
-CrossPoint embeds the exact binary automata produced by
+Biscuit embeds the exact binary automata produced by
 [Typst's `hypher`](https://github.com/typst/hypher). 
 
 ## File layout

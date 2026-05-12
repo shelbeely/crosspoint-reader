@@ -10,9 +10,10 @@
 #include "WifiSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/RadioManager.h"
 
 namespace {
-constexpr const char* HOSTNAME = "crosspoint";
+constexpr const char* HOSTNAME = "biscuit";
 }  // namespace
 
 void CalibreConnectActivity::onEnter() {
@@ -54,11 +55,7 @@ void CalibreConnectActivity::onExit() {
   stopWebServer();
   MDNS.end();
 
-  delay(50);
-  WiFi.disconnect(false);
-  delay(30);
-  WiFi.mode(WIFI_OFF);
-  delay(30);
+  RADIO.shutdown();
 }
 
 void CalibreConnectActivity::onWifiSelectionComplete(const bool connected) {

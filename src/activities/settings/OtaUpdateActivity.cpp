@@ -4,11 +4,13 @@
 #include <I18n.h>
 #include <WiFi.h>
 
+#include "AppVersion.h"
 #include "MappedInputManager.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "network/OtaUpdater.h"
+#include "util/RadioManager.h"
 
 void OtaUpdateActivity::onWifiSelectionComplete(const bool success) {
   if (!success) {
@@ -23,7 +25,15 @@ void OtaUpdateActivity::onWifiSelectionComplete(const bool success) {
     RenderLock lock(*this);
     state = CHECKING_FOR_UPDATE;
   }
-  requestUpdateAndWait();
+  if (requestUpdateAndWait() != RequestUpdateResult::Rendered) {
+    LOG_ERR("OTA", "Checking update screen could not be rendered synchronously; aborting update check");
+    {
+      RenderLock lock(*this);
+      state = FAILED;
+    }
+    requestUpdate(true);
+    return;
+  }
 
   const auto res = updater.checkForUpdate();
   if (res != OtaUpdater::OK) {
@@ -32,6 +42,7 @@ void OtaUpdateActivity::onWifiSelectionComplete(const bool success) {
       RenderLock lock(*this);
       state = FAILED;
     }
+    requestUpdate(true);
     return;
   }
 
@@ -41,6 +52,7 @@ void OtaUpdateActivity::onWifiSelectionComplete(const bool success) {
       RenderLock lock(*this);
       state = NO_UPDATE;
     }
+    requestUpdate(true);
     return;
   }
 
@@ -48,6 +60,7 @@ void OtaUpdateActivity::onWifiSelectionComplete(const bool success) {
     RenderLock lock(*this);
     state = WAITING_CONFIRMATION;
   }
+  requestUpdate(true);
 }
 
 void OtaUpdateActivity::onEnter() {
@@ -66,11 +79,7 @@ void OtaUpdateActivity::onEnter() {
 void OtaUpdateActivity::onExit() {
   Activity::onExit();
 
-  // Turn off wifi
-  WiFi.disconnect(false);  // false = don't erase credentials, send disconnect frame
-  delay(100);              // Allow disconnect frame to be sent
-  WiFi.mode(WIFI_OFF);
-  delay(100);  // Allow WiFi hardware to fully power down
+  RADIO.shutdown();
 }
 
 void OtaUpdateActivity::render(RenderLock&&) {
@@ -100,7 +109,7 @@ void OtaUpdateActivity::render(RenderLock&&) {
   } else if (state == WAITING_CONFIRMATION) {
     renderer.drawCenteredText(UI_10_FONT_ID, top, tr(STR_NEW_UPDATE), true, EpdFontFamily::BOLD);
     renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, top + height + metrics.verticalSpacing,
-                      (std::string(tr(STR_CURRENT_VERSION)) + CROSSPOINT_VERSION).c_str());
+                      (std::string(tr(STR_CURRENT_VERSION)) + CROSSINK_VERSION).c_str());
     renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, top + height * 2 + metrics.verticalSpacing * 2,
                       (std::string(tr(STR_NEW_VERSION)) + updater.getLatestVersion()).c_str());
 
@@ -140,13 +149,21 @@ void OtaUpdateActivity::render(RenderLock&&) {
 
 void OtaUpdateActivity::loop() {
   if (state == WAITING_CONFIRMATION) {
-    if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
       LOG_DBG("OTA", "New update available, starting download...");
       {
         RenderLock lock(*this);
         state = UPDATE_IN_PROGRESS;
       }
-      requestUpdateAndWait();
+      if (requestUpdateAndWait() != RequestUpdateResult::Rendered) {
+        LOG_ERR("OTA", "Update progress screen could not be rendered synchronously; aborting OTA install");
+        {
+          RenderLock lock(*this);
+          state = FAILED;
+        }
+        requestUpdate(true);
+        return;
+      }
       const auto res = updater.installUpdate(
           [](void* ctx) {
             // immediate=true notifies the render task directly. The default deferred path only
@@ -170,9 +187,13 @@ void OtaUpdateActivity::loop() {
         RenderLock lock(*this);
         state = FINISHED;
       }
-      requestUpdateAndWait();
-      // Hold the completion screen briefly so the user sees it, then restart.
-      delay(3000);
+      const auto renderResult = requestUpdateAndWait();
+      if (renderResult == RequestUpdateResult::Rendered) {
+        // Hold the completion screen briefly so the user sees it, then restart.
+        delay(3000);
+      } else {
+        LOG_ERR("OTA", "Completion screen could not be rendered synchronously; restarting without sync confirmation");
+      }
       {
         RenderLock lock(*this);
         state = SHUTTING_DOWN;

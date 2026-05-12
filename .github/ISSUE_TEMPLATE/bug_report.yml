@@ -8,12 +8,50 @@ body:
       value: |
         Thanks for taking the time to report this bug! Please fill out the details below.
 
+  - type: dropdown
+    id: device-type
+    attributes:
+      label: Device
+      description: Which device is this affecting?
+      options:
+        - X4
+        - X3
+        - Both
+    validations:
+      required: true
+
   - type: input
     id: version
     attributes:
       label: Affected Version
       description: What version of the project/library are you using? (e.g., v1.2.3, master branch commit SHA)
       placeholder: Ex. v1.2.3
+    validations:
+      required: true
+
+  - type: dropdown
+    id: build-variant
+    attributes:
+      label: Build Variant
+      description: What build variant are you using? (e.g., tiny, xlarge, no_emoji)
+      options:
+        - tiny
+        - xlarge
+        - no_emoji
+    validations:
+      required: true
+
+  - type: dropdown
+    id: cache-state
+    attributes:
+      label: Cache State
+      description: Have you attempted to clear any cached data?
+      options:
+        - No / Not Applicable
+        - Yes, book cache (Reader menu > Delete Book Cache)
+        - Yes, reading cache (Settings > System > Clear Reading Cache)
+        - Yes, device cache (SD Card > ./crosspoint folder)
+        - All of the above
     validations:
       required: true
 
@@ -50,5 +88,5 @@ body:
     id: logs
     attributes:
       label: Relevant Log Output/Screenshots
-      description: If applicable, error messages, or log output to help explain your problem. You can drag and drop images here.
+      description: If applicable, error messages, or log output to help explain your problem. If a crash_report.txt file was generated include it here or your issue may not be addressed in a timely manner. You can drag and drop images here.
       render: shell
