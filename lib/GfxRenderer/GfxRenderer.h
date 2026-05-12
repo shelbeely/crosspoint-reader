@@ -17,6 +17,30 @@ class SdCardFont;
 // 0 = transparent, 1-16 = gray levels (white to black)
 enum Color : uint8_t { Clear = 0x00, White = 0x01, LightGray = 0x05, DarkGray = 0x0A, Black = 0x10 };
 
+/**
+ * @brief 2-D drawing API for the e-ink display.
+ *
+ * GfxRenderer owns a single 1-bit framebuffer (800×480 / 8 = 48 000 bytes) and provides
+ * drawing primitives that write into it. When a frame is ready, call displayBuffer() to
+ * push the framebuffer to the physical panel via HalDisplay.
+ *
+ * All drawing happens in logical screen coordinates. The orientation (Portrait / Landscape)
+ * is set via setOrientation() and is applied transparently to all draw calls.
+ *
+ * Render modes:
+ *   BW              — standard 1-bit black/white rendering (default)
+ *   GRAYSCALE_LSB   — first pass of the two-pass grayscale anti-aliasing pipeline
+ *   GRAYSCALE_MSB   — second pass; call displayGrayBuffer() to push the merged result
+ *
+ * Font handling:
+ *   Built-in fonts are registered with insertFont(fontId, family) at startup.
+ *   SD card fonts are registered with registerSdCardFont(fontId, ptr).
+ *   Pass fontId + EpdFontFamily::Style to any text drawing method.
+ *
+ * Threading:
+ *   GfxRenderer is called from the render task (not the main loop task). Do not call
+ *   draw methods from the main loop task without holding a RenderLock.
+ */
 class GfxRenderer {
  public:
   enum RenderMode { BW, GRAYSCALE_LSB, GRAYSCALE_MSB };

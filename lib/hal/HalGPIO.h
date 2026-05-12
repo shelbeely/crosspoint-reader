@@ -38,6 +38,20 @@
 #define QMI8658_WHO_AM_I_REG 0x00    // WHO_AM_I command code
 #define QMI8658_WHO_AM_I_VALUE 0x05  // WHO_AM_I expected value
 
+/**
+ * @brief HAL wrapper for GPIO, button input, USB detection, and SPI bus setup.
+ *
+ * Wraps the open-x4-sdk InputManager and manages all physical button state.
+ * Also handles USB-C connection detection, deep-sleep wake configuration, and
+ * hardware variant detection (X3 vs X4).
+ *
+ * In application code, do not use raw button indices — use MappedInputManager::Button::*
+ * enums instead. MappedInputManager sits on top of HalGPIO and applies front-button
+ * layout remapping.
+ *
+ * Global singleton: extern HalGPIO gpio;
+ * Do not use InputManager directly in application code — always go through HalGPIO.
+ */
 class HalGPIO {
 #if CROSSPOINT_EMULATED == 0
   InputManager inputMgr;

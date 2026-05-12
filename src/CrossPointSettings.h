@@ -4,6 +4,22 @@
 #include <cstdint>
 #include <iosfwd>
 
+/**
+ * @brief Singleton holding all user-configurable preferences.
+ *
+ * Access via the SETTINGS macro: `SETTINGS.someField`.
+ * Persisted to `/.crosspoint/settings.bin` on the SD card.
+ *
+ * Persistence rules:
+ *   - Call SETTINGS.saveToFile() after the user changes a preference.
+ *   - Do NOT call saveToFile() on every page turn or loop iteration — only on deliberate user actions
+ *     or just before the device enters deep sleep.
+ *   - When adding new fields, append them at the end of the binary serialization and bump the format
+ *     version to invalidate old cache files gracefully.
+ *
+ * Settings that affect the EPUB section layout cache (font, size, viewport, typography) automatically
+ * bust the section cache when changed, causing the next open to re-layout the chapter.
+ */
 class CrossPointSettings {
  private:
   // Private constructor for singleton
@@ -17,6 +33,7 @@ class CrossPointSettings {
   CrossPointSettings(const CrossPointSettings&) = delete;
   CrossPointSettings& operator=(const CrossPointSettings&) = delete;
 
+  // Sleep screen display mode — what to show when the device enters deep sleep
   enum SLEEP_SCREEN_MODE {
     DARK = 0,
     LIGHT = 1,

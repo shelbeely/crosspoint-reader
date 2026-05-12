@@ -7,6 +7,21 @@
  * ESP-NOW runs on top of the WiFi radio (STA mode, no IP stack).
  * Call ensureWifi() before any WiFi operation, ensureBle() before any BLE
  * operation, and ensureEspNow() before any ESP-NOW operation.
+ *
+ * State machine:
+ *
+ *   OFF ──ensureWifi()──► WIFI
+ *   OFF ──ensureBle()───► BLE
+ *   OFF ──ensureEspNow()► ESPNOW
+ *   WIFI ──ensureBle()──► BLE    (deinits WiFi first)
+ *   BLE ──ensureWifi()──► WIFI   (deinits BLE first)
+ *   any ──shutdown()────► OFF
+ *
+ * Only one state is active at a time. Callers must call shutdown() in their
+ * activity's onExit() if they activated a radio mode.
+ *
+ * Access via the RADIO macro: RADIO.ensureWifi(), RADIO.shutdown(), etc.
+ * NVS namespace: "crosspoint".
  */
 class RadioManager {
  public:
