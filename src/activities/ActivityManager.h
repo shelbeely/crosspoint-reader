@@ -38,6 +38,19 @@ enum class RequestUpdateResult { Rendered, Rejected };
  * Main differences from Android's ActivityManager:
  * - No onPause/onResume, since we don't have a concept of background activities
  * - onActivityResult is implemented via a callback instead of a separate method, for simplicity
+ *
+ * Navigation semantics:
+ * - replaceActivity() / goTo*(): destroy the current stack and start a new top-level screen
+ * - pushActivity(): push the current activity onto the stack and show a new one on top; the original is
+ *   kept alive so the user can navigate back
+ * - popActivity(): remove the current activity and return to the previous one on the stack; if the stack
+ *   is empty, goHome() is called automatically
+ *
+ * Render concurrency:
+ * A dedicated FreeRTOS render task runs renderTaskLoop() and calls the current activity's render() method
+ * when requestUpdate() has been triggered. The renderingMutex (held via RenderLock) prevents simultaneous
+ * renders. requestUpdateAndWait() blocks the caller until the render completes; it returns Rejected when
+ * called from the render task itself or while a RenderLock is already held.
  */
 class ActivityManager {
   friend class RenderLock;

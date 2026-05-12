@@ -5,6 +5,8 @@ nav_order: 8
 
 # File Formats
 
+> **Version bump reminder:** whenever you change a binary cache format, increment the version constant in the reader/writer code and add a new version entry to this file describing what changed. Old cache files with lower version numbers are automatically invalidated and regenerated.
+
 ## `book.bin`
 
 ### Version 3
@@ -372,3 +374,73 @@ if (parsedSize != fileSize) {
     std::warning(std::format("Unparsed data detected: {} bytes remaining at offset 0x{:X}", fileSize - parsedSize, parsedSize));
 }
 ```
+
+---
+
+## `md_<hash>/index.bin` — Markdown cache
+
+**Location:** `/.crosspoint/md_<hash>/index.bin`  
+**Magic bytes:** `MDKI` (4 bytes, ASCII)  
+**Format version:** 1
+
+The Markdown reader caches its laid-out page data under `.crosspoint/md_<hash>/` where `<hash>` is a CRC/hash of the source `.md` file path. The cache is invalidated if the source file changes or if layout-relevant settings (font, viewport) change.
+
+The `index.bin` file stores the page table and rendering parameters so that subsequent opens skip the parse-and-layout step.
+
+> **Version bump reminder:** if you change the `index.bin` layout, increment the version constant in `MarkdownReaderActivity` and add an entry here.
+
+---
+
+## `contacts.bin` — VCard index cache
+
+**Location:** `/.crosspoint/contacts.bin`  
+**Magic bytes:** `VCFX` (4 bytes, ASCII)  
+**Format version:** 1
+
+The Contacts PDA feature reads `/contacts.vcf` from the SD card root (standard vCard 3.0 format) and caches a binary index at `/.crosspoint/contacts.bin` for fast lookup.
+
+The cache is invalidated when `/contacts.vcf` changes (detected by file size or modification time).
+
+> **Version bump reminder:** if you change the binary index layout, increment the version constant in `VCard.cpp` and add an entry here.
+
+---
+
+## `github.json` — GitHub companion credentials
+
+**Location:** `/.crosspoint/github.json`
+
+Stores the GitHub Personal Access Token (PAT) for the GitHub companion feature.
+
+```json
+{
+  "token": "<MAC-XOR obfuscated PAT>"
+}
+```
+
+The PAT is XOR-obfuscated with a key derived from the device MAC address. This is obfuscation, not encryption — it prevents casual shoulder-surfing but is not a security boundary.
+
+**Security rules:**
+- The raw PAT must never appear in `LOG_*` output
+- The file should not be shared or backed up
+- The obfuscated value is useless on a different device (different MAC key)
+
+See `src/GitHubCredentialStore.h` for the obfuscation implementation.
+
+---
+
+## `watched_repos.json` — GitHub watchlist
+
+**Location:** `/.crosspoint/watched_repos.json`
+
+Stores up to 16 GitHub repository slugs (owner/repo) watched by the GitHub companion feature.
+
+```json
+{
+  "repos": [
+    "crosspoint-reader/crosspoint-reader",
+    "owner/another-repo"
+  ]
+}
+```
+
+Maximum 16 entries (enforced by `WatchedReposStore`). Adding a 17th entry replaces the oldest.

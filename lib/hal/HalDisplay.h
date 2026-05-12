@@ -2,6 +2,26 @@
 #include <Arduino.h>
 #include <EInkDisplay.h>
 
+/**
+ * @brief HAL wrapper for the Xteink X4 e-ink display.
+ *
+ * Owns the single 48 KB (800×480 / 8 bytes) framebuffer and provides the interface
+ * to push it to the physical panel via SPI.
+ *
+ * Display pipeline:
+ *   GfxRenderer (draw calls) → HalDisplay::displayBuffer() → EInkDisplay (open-x4-sdk) → SPI → panel
+ *
+ * Refresh modes:
+ *   FAST_REFRESH  — custom LUT, ~300 ms, used for normal page turns
+ *   HALF_REFRESH  — balanced quality/speed, ~1720 ms
+ *   FULL_REFRESH  — full waveform, ~3 s, used to remove deep ghosting
+ *
+ * Single-buffer constraint: EINK_DISPLAY_SINGLE_BUFFER_MODE=1 is mandatory because the ESP32-C3 has
+ * only ~380 KB SRAM. A second 48 KB buffer would waste ~25 % of available RAM.
+ *
+ * Global singleton: extern HalDisplay display;
+ * Do not use EInkDisplay directly in application code — always go through HalDisplay.
+ */
 class HalDisplay {
  public:
   // Constructor with pin configuration

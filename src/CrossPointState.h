@@ -3,6 +3,22 @@
 #include <cstdint>
 #include <string>
 
+/**
+ * @brief Singleton holding runtime/session state that persists across sleep/wake cycles.
+ *
+ * Access via the APP_STATE macro: `APP_STATE.someField`.
+ * Persisted to `/.crosspoint/state.bin` on the SD card.
+ *
+ * Unlike CrossPointSettings (which holds user preferences), CrossPointState holds transient
+ * session data: what book was open, where the user was reading, sleep screen context, and
+ * pending inter-task signals.
+ *
+ * The state is saved just before deep sleep and loaded on boot so the device can resume
+ * exactly where the user left off.
+ *
+ * Persistence rules: same as CrossPointSettings — do not call saveToFile() on every frame.
+ * The pre-sleep path calls saveToFile() automatically.
+ */
 class CrossPointState {
   // Static instance
   static CrossPointState instance;

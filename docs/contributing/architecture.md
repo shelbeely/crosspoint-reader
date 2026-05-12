@@ -197,6 +197,99 @@ When editing related source assets, regenerate via normal build steps/scripts.
 - main loop responsiveness matters for input, power handling, and watchdog safety
 - background/network flows must cooperate with sleep and loop timing logic
 
+## HAL layer
+
+The hardware SDK lives in the `open-x4-sdk/` git submodule. It provides low-level display, input, storage, and battery drivers specific to the Xteink X4 hardware. App code must never call SDK classes directly — always go through the HAL wrappers in `lib/hal/`.
+
+| HAL class | File | Responsibility |
+|-----------|------|---------------|
+| `HalDisplay` | `HalDisplay.h` | Owns the e-ink panel: framebuffer, refresh modes (FULL/HALF/FAST), deep sleep |
+| `HalGPIO` | `HalGPIO.h` | Button input, USB detection, deep-sleep wake, SPI bus setup, device-type detection (X3/X4) |
+| `HalPowerManager` | `HalPowerManager.h` | CPU frequency scaling, battery percentage, RAII `Lock` for full-speed work |
+| `HalStorage` | `HalStorage.h` | SD card I/O via thread-safe `HalFile` (aliased as `FsFile` for downstream code); `Storage` macro |
+| `HalSystem` | `HalSystem.h` | Panic capture/replay, crash dump to SD |
+| `HalTiltSensor` | `HalTiltSensor.h` | QMI8658 IMU driver, tilt-page-turn gesture detection, power save |
+| `HalSpiBus` | `HalSpiBus.h` | Shared SPI bus arbitration between the display and SD card |
+
+Global singleton instances are created in `src/main.cpp`: `gpio`, `display`, `storage`, `powerManager`, `halTiltSensor`.
+
+**Why this rule exists**: the `env:simulator` build replaces the `lib/hal/` implementations with SDL2 stubs. Bypassing HAL means your code will not compile in the simulator and will be harder to test without hardware.
+
+## Rendering pipeline
+
+```
+GfxRenderer (draw calls)
+  └─ frameBuffer (48 KB heap allocation, 1 bit/pixel)
+       └─ HalDisplay::displayBuffer()
+            └─ EInkDisplay (open-x4-sdk) → SPI → physical e-ink panel
+```
+
+`GfxRenderer` manages a single 1-bit framebuffer (`800 × 480 / 8 = 48 000 bytes`). All drawing operations write into this buffer. When a frame is ready, `displayBuffer()` pushes the buffer to the panel via `HalDisplay`.
+
+The `EINK_DISPLAY_SINGLE_BUFFER_MODE=1` compile flag tells the SDK to allocate only one framebuffer rather than two. This is **mandatory** on ESP32-C3: with only ~380 KB usable SRAM and no PSRAM, a second 48 KB buffer would fragment the heap and cause out-of-memory failures.
+
+Refresh modes (set per `displayBuffer()` call):
+- `FAST_REFRESH` — custom LUT, used for normal page turns; fastest but may show slight ghosting
+- `HALF_REFRESH` — balanced quality/speed (~1720 ms)
+- `FULL_REFRESH` — complete waveform, used for deep ghosting removal
+
+Grayscale rendering (for anti-aliased text) uses two separate buffer passes (`GRAYSCALE_LSB` / `GRAYSCALE_MSB`), merged by the display driver.
+
+## Font system
+
+Fonts are loaded and rendered through two parallel systems:
+
+**Built-in fonts** are compiled directly into flash as `static const` byte arrays in `lib/EpdFont/builtinFonts/`. They are registered in `src/main.cpp` via `renderer.insertFont(fontId, family)`. Available families: Lexend Deca (UI), Chareink (reader), and the Material Symbols Rounded icon font (see `src/components/MaterialIcons.h` for the codepoint-to-`UIIcon` table and `src/fontIds.h` for font ID constants).
+
+**SD card fonts** are loaded at runtime via `SdCardFontSystem`. The user places `.bin` font files on the SD card; `FontCacheManager` decompresses and caches glyph data. SD font IDs coexist in the same `fontMap` as built-in fonts.
+
+Font variants are always accessed via `EpdFontFamily` (holds regular/bold/italic/bold-italic). Pass the font ID integer and an `EpdFontFamily::Style` enum to `GfxRenderer` draw calls.
+
+## Input model
+
+```
+HalGPIO (raw button state)
+  └─ MappedInputManager (logical button abstraction, reader-mode remapping)
+       └─ ButtonNavigator (list/menu navigation helper)
+```
+
+`MappedInputManager` maps physical button indices to `MappedInputManager::Button` enum values (`Back`, `Confirm`, `Left`, `Right`, `Up`, `Down`, `Power`, `PageBack`, `PageForward`). Reader mode can remap front buttons for page-turn use.
+
+Always use `MappedInputManager::Button::*` enum values in activity code — never hardcode raw button indices from `HalGPIO`.
+
+`ButtonNavigator` wraps a list index and handles Up/Down/PageBack/PageForward navigation with wrap-around, keeping activity code free of repetitive scroll logic.
+
+## Radio arbitration
+
+The ESP32-C3 has a single shared radio: WiFi and BLE cannot run simultaneously, and ESP-NOW runs on top of the WiFi radio without an IP stack.
+
+`RadioManager` (singleton `RADIO`) is the single gatekeeper:
+
+```
+RadioState: OFF → WIFI | BLE | ESPNOW
+```
+
+| Method | What it does |
+|--------|-------------|
+| `ensureWifi()` | Activates WiFi STA with IP stack; tears down BLE/ESP-NOW first |
+| `ensureBle()` | Activates BLE; tears down WiFi/ESP-NOW first |
+| `ensureEspNow()` | Sets WiFi STA (no IP stack) + `esp_now_init()`; tears down BLE first |
+| `shutdown()` | Tears down whichever radio mode is active |
+
+Only one state is active at a time. Callers must call `shutdown()` in `onExit()` if they activated a radio mode.
+
+NVS namespace for the RadioManager disclaimer is `"crosspoint"`.
+
+## I18n system
+
+Every user-visible string in the UI must use `tr(STR_KEY)`, not a hardcoded string literal. Using a hardcoded literal in UI code is a bug.
+
+Translation source files are YAML under `lib/I18n/translations/`. Each file is one language. Running `scripts/gen_i18n.py lib/I18n/translations lib/I18n/` regenerates the C++ headers in `lib/I18n/`. This script runs automatically as a pre-build step in PlatformIO.
+
+The `tr()` call resolves to a `const char*` at runtime. Do not pass it to functions that assume null-termination beyond the string itself (like `string_view`-based APIs).
+
+Log messages (`LOG_INF`, `LOG_DBG`, `LOG_ERR`) may use hardcoded English strings — only user-facing text must be translated.
+
 ## Scope guardrails
 
 Before implementing larger ideas, check:

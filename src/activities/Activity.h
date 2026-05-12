@@ -13,6 +13,27 @@
 #include "RenderLock.h"
 #include "util/ScreenshotInfo.h"
 
+/**
+ * @brief Base class for every screen in the firmware.
+ *
+ * An Activity is a full-screen controller. The pattern mirrors Android's Activity:
+ * one screen is active at a time, managed on a stack by ActivityManager.
+ *
+ * Lifecycle (called by ActivityManager):
+ *   onEnter()  — allocate resources, open files, start FreeRTOS tasks, call requestUpdate()
+ *   loop()     — called every main-loop iteration; handle input, update state
+ *   render()   — called from the render task when requestUpdate() was triggered; issue draw calls
+ *   onExit()   — free all resources in reverse order of allocation; delete tasks before objects they use
+ *
+ * Memory rules:
+ *   - Allocate long-lived buffers on the heap in onEnter(), free in onExit()
+ *   - Keep stack locals under 256 bytes; larger data goes on the heap
+ *   - Do not allocate or free in the render() hot path
+ *   - FreeRTOS tasks must be deleted in onExit() before any objects they reference are destroyed
+ *   - File handles (HalFile / FsFile) must be closed in onExit()
+ *
+ * The activity is heap-allocated and deleted by ActivityManager after onExit() returns.
+ */
 class Activity {
   friend class ActivityManager;
 
