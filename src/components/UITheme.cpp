@@ -12,6 +12,7 @@
 #include "components/themes/MilitaryTheme.h"
 #include "components/themes/lyra/Lyra3CoversTheme.h"
 #include "components/themes/lyra/LyraTheme.h"
+#include "components/themes/material3/Material3Theme.h"
 #include "components/themes/noir/NoirTheme.h"
 #include "components/themes/radar/RadarTheme.h"
 #include "components/themes/roundedraff/RoundedRaffTheme.h"
@@ -68,6 +69,11 @@ void UITheme::setTheme(CrossPointSettings::UI_THEME type) {
       LOG_DBG("UI", "Using Radar theme");
       currentTheme = std::make_unique<RadarTheme>();
       currentMetrics = &RadarMetrics::values;
+      break;
+    case CrossPointSettings::UI_THEME::MATERIAL3:
+      LOG_DBG("UI", "Using Material 3 theme");
+      currentTheme = std::make_unique<Material3Theme>();
+      currentMetrics = &Material3Metrics::values;
       break;
   }
 }
