@@ -142,14 +142,12 @@ void Material3Theme::drawHeader(const GfxRenderer& renderer, Rect rect, const ch
   }
 
   if (subtitle) {
-    const int subtitleWidth = renderer.getTextWidth(SMALL_FONT_ID, subtitle);
     const int maxSubW = rect.width - pad * 2 - maxBatteryGroupWidth;
     auto truncSub = renderer.truncatedText(SMALL_FONT_ID, subtitle, std::max(0, maxSubW));
     const int truncSubW = renderer.getTextWidth(SMALL_FONT_ID, truncSub.c_str());
     renderer.drawText(SMALL_FONT_ID, rect.x + rect.width - pad - truncSubW,
                       titleY + renderer.getLineHeight(UI_12_FONT_ID) - renderer.getLineHeight(SMALL_FONT_ID),
                       truncSub.c_str(), true);
-    (void)subtitleWidth;
   }
 
   // MD3 bottom divider (1 px)
@@ -280,9 +278,9 @@ void Material3Theme::drawList(const GfxRenderer& renderer, Rect rect, int itemCo
 
     if (isHeader && isHeader(i)) {
       // Section header: bold uppercase label with divider
-      std::string label = rowTitle(i);
-      for (auto& c : label) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-      auto trunc = renderer.truncatedText(UI_10_FONT_ID, label.c_str(), contentWidth - pad * 2, EpdFontFamily::BOLD);
+      std::string upperLabel = rowTitle(i);
+      for (auto& c : upperLabel) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+      auto trunc = renderer.truncatedText(UI_10_FONT_ID, upperLabel.c_str(), contentWidth - pad * 2, EpdFontFamily::BOLD);
       renderer.drawText(UI_10_FONT_ID, rect.x + pad, itemY + 6, trunc.c_str(), true, EpdFontFamily::BOLD);
       renderer.drawLine(rect.x, itemY + rowHeight - 1, rect.x + contentWidth, itemY + rowHeight - 1, true);
       continue;
@@ -543,7 +541,7 @@ Rect Material3Theme::drawPopup(const GfxRenderer& renderer, const char* message)
 // Popup progress — MD3 linear progress indicator
 // ---------------------------------------------------------------------------
 
-void Material3Theme::fillPopupProgress(const GfxRenderer& renderer, const Rect& layout, const int progress) const {
+void Material3Theme::fillPopupProgress(const GfxRenderer& renderer, const Rect& layout, int progress) const {
   constexpr int barH = 4;
   constexpr int barRadius = 2;
   constexpr int barSidePad = 24;
@@ -567,7 +565,7 @@ void Material3Theme::fillPopupProgress(const GfxRenderer& renderer, const Rect& 
 // Text field — MD3 Filled Text Field
 // ---------------------------------------------------------------------------
 
-void Material3Theme::drawTextField(const GfxRenderer& renderer, Rect rect, const int textWidth, bool cursorMode,
+void Material3Theme::drawTextField(const GfxRenderer& renderer, Rect rect, int textWidth, bool cursorMode,
                                    int contentStartX, int contentWidth) const {
   const int lineH = renderer.getLineHeight(UI_12_FONT_ID);
   const int lineY = rect.y + rect.height + lineH + Material3Metrics::values.verticalSpacing;
