@@ -27,6 +27,7 @@
 #include "OpdsServerStore.h"
 #include "RecentBooksStore.h"
 #include "activities/apps/AppsMenuActivity.h"
+#include "activities/contacts/ContactsActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 
@@ -169,7 +170,7 @@ float loadRecentBookProgressPercent(const RecentBook& book) {
 }  // namespace
 
 int HomeActivity::getMenuItemCount() const {
-  int count = 5;  // File Browser, Recents, File transfer, Apps, Settings
+  int count = 6;  // File Browser, Recents, File Transfer, Contacts, Apps, Settings (plus conditional OPDS/Stats/Bookmarks)
   if (!recentBooks.empty()) {
     count += recentBooks.size();
   }
@@ -378,6 +379,7 @@ void HomeActivity::loop() {
     const int bookmarksIdx = hasBookmarks ? idx++ : -1;
     const int opdsLibraryIdx = hasOpdsServers ? idx++ : -1;
     const int fileTransferIdx = idx++;
+    const int contactsIdx = idx++;
     const int appsIdx = idx++;
     const int settingsIdx = idx;
 
@@ -395,6 +397,8 @@ void HomeActivity::loop() {
       onBookmarksOpen();
     } else if (menuSelectedIndex == fileTransferIdx) {
       onFileTransferOpen();
+    } else if (menuSelectedIndex == contactsIdx) {
+      onContactsOpen();
     } else if (menuSelectedIndex == appsIdx) {
       onAppsOpen();
     } else if (menuSelectedIndex == settingsIdx) {
@@ -421,8 +425,8 @@ void HomeActivity::render(RenderLock&&) {
 
   // Build menu items dynamically
   std::vector<const char*> menuItems = {tr(STR_BROWSE_FILES), tr(STR_MENU_RECENT_BOOKS), tr(STR_FILE_TRANSFER),
-                                        tr(STR_APPS), tr(STR_SETTINGS_TITLE)};
-  std::vector<UIIcon> menuIcons = {Folder, Recent, Transfer, Book, Settings};
+                                        tr(STR_CONTACTS), tr(STR_APPS), tr(STR_SETTINGS_TITLE)};
+  std::vector<UIIcon> menuIcons = {Folder, Recent, Transfer, Text, Book, Settings};
 
   if (hasOpdsServers) {
     menuItems.insert(menuItems.begin() + 2, tr(STR_OPDS_BROWSER));
@@ -486,6 +490,10 @@ void HomeActivity::onFileTransferOpen() { activityManager.goToFileTransfer(); }
 
 void HomeActivity::onAppsOpen() {
   activityManager.pushActivity(std::make_unique<AppsMenuActivity>(renderer, mappedInput));
+}
+
+void HomeActivity::onContactsOpen() {
+  activityManager.pushActivity(std::make_unique<ContactsActivity>(renderer, mappedInput));
 }
 
 void HomeActivity::onOpdsBrowserOpen() { activityManager.goToBrowser(); }

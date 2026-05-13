@@ -13,36 +13,37 @@
 #include "CipherActivity.h"
 #include "ClockActivity.h"
 #include "DeviceInfoActivity.h"
-#include "DiceRollerActivity.h"
-#include "GameOfLifeActivity.h"
 #include "KarmaAttackActivity.h"
 #include "MacRandomizerActivity.h"
 #include "MappedInputManager.h"
 #include "MeshChatActivity.h"
-#include "MinesweeperActivity.h"
 #include "MorseCodeActivity.h"
 #include "OtpGeneratorActivity.h"
 #include "QrGeneratorActivity.h"
 #include "ReadingStatsActivity.h"
 #include "SdFileBrowserActivity.h"
-#include "SnakeActivity.h"
-#include "SudokuActivity.h"
 #include "TaskManagerActivity.h"
 #include "UnitConverterActivity.h"
 #include "activities/browser/OpdsBookBrowserActivity.h"
+#include "activities/contacts/ContactsActivity.h"
 #include "activities/home/FileBrowserActivity.h"
 #include "activities/home/RecentBooksActivity.h"
 #include "activities/network/NetworkModeSelectionActivity.h"
 #include "activities/settings/SettingsActivity.h"
+#include "CalendarActivity.h"
+#include "ExpenseTrackerActivity.h"
+#include "NotesActivity.h"
+#include "TodoActivity.h"
+#include "WorldClockActivity.h"
 #include "components/UITheme.h"
 #include "components/themes/radar/RadarHomeRenderer.h"
 #include "fontIds.h"
 #include "util/MacManager.h"
 
 // 8 radar nodes — kept in flash (.rodata).
-// Order: COMMS, TOOLS, CRYPTO, GAMES, READER, FILES, SYSTEM, SETTINGS
+// Order: COMMS, TOOLS, CRYPTO, PDA, READER, FILES, SYSTEM, SETTINGS
 static constexpr RadarNode kRadarNodes[8] = {
-    {"COMMS", 3}, {"TOOLS", 4}, {"CRYPTO", 3}, {"GAMES", 5},
+    {"COMMS", 3}, {"TOOLS", 5}, {"CRYPTO", 3}, {"PDA", 5},
     {"READER", 4}, {"FILES", 1}, {"SYSTEM", 3}, {"SETTINGS", 2},
 };
 
@@ -155,6 +156,8 @@ std::unique_ptr<Activity> AppsMenuActivity::buildCategory(int index) {
            [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MorseCodeActivity>(r, m); }},
           {tr(STR_UNIT_CONVERTER), "Convert between units", UIIcon::File,
            [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<UnitConverterActivity>(r, m); }},
+          {tr(STR_WORLD_CLOCK), "Multi-timezone clock", UIIcon::Recent,
+           [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WorldClockActivity>(r, m); }},
       };
       return std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Tools", std::move(e), false, 1);
     }
@@ -171,20 +174,20 @@ std::unique_ptr<Activity> AppsMenuActivity::buildCategory(int index) {
       return std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Crypto", std::move(e), false, 2);
     }
     case 3: {
-      // GAMES — offline games, no radio needed
+      // PDA — personal digital assistant apps
       std::vector<AppCategoryActivity::AppEntry> e = {
-          {tr(STR_SNAKE), "Classic snake", UIIcon::File,
-           [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SnakeActivity>(r, m); }},
-          {tr(STR_MINESWEEPER), "Classic minesweeper", UIIcon::File,
-           [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MinesweeperActivity>(r, m); }},
-          {tr(STR_SUDOKU), "Number puzzle", UIIcon::File,
-           [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SudokuActivity>(r, m); }},
-          {tr(STR_DICE_ROLLER), "Roll dice with animation", UIIcon::File,
-           [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DiceRollerActivity>(r, m); }},
-          {tr(STR_GAME_OF_LIFE), "Conway's cellular automaton", UIIcon::File,
-           [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<GameOfLifeActivity>(r, m); }},
+          {tr(STR_CALENDAR), "Monthly calendar with events", UIIcon::Recent,
+           [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CalendarActivity>(r, m); }},
+          {tr(STR_CONTACTS), "Contact list from contacts.vcf", UIIcon::Text,
+           [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ContactsActivity>(r, m); }},
+          {tr(STR_NOTES), "Plaintext notes on SD card", UIIcon::File,
+           [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<NotesActivity>(r, m); }},
+          {tr(STR_TODO), "Task checklist", UIIcon::Text,
+           [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TodoActivity>(r, m); }},
+          {tr(STR_EXPENSES), "Expense tracker", UIIcon::Chart,
+           [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ExpenseTrackerActivity>(r, m); }},
       };
-      return std::make_unique<AppCategoryActivity>(renderer, mappedInput, tr(STR_GAMES), std::move(e), false, 3);
+      return std::make_unique<AppCategoryActivity>(renderer, mappedInput, "PDA", std::move(e), false, 3);
     }
     case 4: {
       // READER — books, OPDS, reading progress
@@ -382,9 +385,9 @@ void AppsMenuActivity::drawTile(int index, int x, int y, int w, int h, bool sele
   };
   static constexpr TileInfo kTiles[ITEM_COUNT] = {
       {"COMMS", "Chat, karma, MAC", 3},
-      {"TOOLS", "Productivity", 4},
+      {"TOOLS", "Productivity", 5},
       {"CRYPTO", "Cipher & codes", 3},
-      {"GAMES", "Entertainment", 5},
+      {"PDA", "Personal tools", 5},
       {"READER", "Books & OPDS", 4},
       {"FILES", "SD card", 1},
       {"SYSTEM", "Device info", 3},

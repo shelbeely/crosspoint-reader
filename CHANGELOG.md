@@ -4,6 +4,23 @@
 
 ### Added
 
+#### PDA tile — personal digital assistant apps
+- Replace the **GAMES** tile with a **PDA** tile in the 8-node apps radar grid
+- **CalendarActivity** (`src/activities/apps/CalendarActivity.h/.cpp`): monthly grid calendar with event storage (`/.crosspoint/calendar.json`), day-detail view, and add-event flow (title + note via keyboard); max 64 events per file
+- **VCard library** (`lib/VCard/VCard.h/.cpp`): pure C++ streaming vCard 3.0 parser (host-testable); extracts FN, TEL, EMAIL, ORG, NOTE; builds index cache at `/.crosspoint/contacts.bin` (magic VCFX v1)
+- **ContactsActivity** (`src/activities/contacts/ContactsActivity.h/.cpp`): contact list + detail view backed by `/contacts.vcf`; index loaded in `onEnter`, detail fetched on demand; hold-Confirm search; also accessible from HomeActivity main menu
+- **NotesActivity** (`src/activities/apps/NotesActivity.h/.cpp`): plaintext note files under `/.crosspoint/notes/`; file list + paginated view; hold-Confirm to create or append lines
+- **TodoActivity** (`src/activities/apps/TodoActivity.h/.cpp`): task checklist from `/.crosspoint/todo.json`; toggle done/undone; hold-Confirm to add or delete tasks; writes to SD only on exit if dirty
+- **ExpenseTrackerActivity** (`src/activities/apps/ExpenseTrackerActivity.h/.cpp`): expense log (`/.crosspoint/expenses.json`); summary view with per-category ASCII bar chart; list view; numeric add flow with 5 built-in categories; CSV export to `/expenses_export.csv`
+- **WorldClockActivity** (`src/activities/apps/WorldClockActivity.h/.cpp`): multi-timezone NTP clock in **TOOLS** tile; up to 6 zones stored in `/.crosspoint/world_clocks.json`; refreshes every second
+- Add `CONTACT = 9` sleep screen mode to `CrossPointSettings::SLEEP_SCREEN_MODE`; `SleepActivity::renderContactSleepScreen()` picks a random contact name + phone from the index to display
+- Add **Contacts** entry to `HomeActivity` main menu for quick access without the apps grid
+
+### Removed
+
+- **GAMES tile** and all game activity source files: `SnakeActivity`, `MinesweeperActivity`, `SudokuActivity`, `DiceRollerActivity`, `GameOfLifeActivity` — replaced by the PDA tile
+- Associated game i18n strings (`STR_SNAKE`, `STR_MINESWEEPER`, `STR_SUDOKU`, `STR_DICE_ROLLER`, `STR_GAME_OF_LIFE`, `STR_GAMES`) removed from all 23 translation YAML files
+
 #### Apps framework (biscuit fork integration)
 - Integrate biscuit fork app framework: 8-tile grid/radar apps menu (COMMS, TOOLS, CRYPTO, GAMES, READER, FILES, SYSTEM, SETTINGS) with curated app set
 - **COMMS**: `MeshChatActivity` (ESP-NOW peer-to-peer chat), `KarmaAttackActivity` (karma rogue-AP), `MacRandomizerActivity` (WiFi MAC spoofer)
