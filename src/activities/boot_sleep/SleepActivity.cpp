@@ -6,6 +6,7 @@
 #include <HalPowerManager.h>
 #include <HalStorage.h>
 #include <I18n.h>
+#include <Serialization.h>
 #include <PNGdec.h>
 #include <Txt.h>
 #include <Xtc.h>
@@ -24,6 +25,7 @@
 #include "CrossPointState.h"
 #include "RecentBooksStore.h"
 #include "activities/reader/ReaderUtils.h"
+#include "activities/contacts/ContactsActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "images/Logo120.h"
@@ -379,6 +381,8 @@ void SleepActivity::onEnter() {
       return renderReadingStatsSleepScreen();
     case (CrossPointSettings::SLEEP_SCREEN_MODE::STATUS):
       return renderStatusSleepScreen();
+    case (CrossPointSettings::SLEEP_SCREEN_MODE::CONTACT):
+      return renderContactSleepScreen();
     default:
       return renderDefaultSleepScreen();
   }
@@ -896,5 +900,58 @@ void SleepActivity::renderStatusSleepScreen() const {
 
   // Dark mode (invert screen)
   renderer.invertScreen();
+  renderer.displayBuffer(HalDisplay::HALF_REFRESH);
+}
+
+void SleepActivity::renderContactSleepScreen() const {
+  // Load contact index from cache; pick a random entry to display.
+  VCardIndex* index = new VCardIndex[VCard::MAX_CONTACTS];
+  int count = 0;
+
+  {
+    FsFile file;
+    if (Storage.openFileForRead("SLP", "/.crosspoint/contacts.bin", file)) {
+      uint32_t magic = 0;
+      uint8_t version = 0;
+      uint32_t n = 0;
+      serialization::readPod(file, magic);
+      serialization::readPod(file, version);
+      serialization::readPod(file, n);
+      if (magic == VCard::CACHE_MAGIC && version == VCard::CACHE_VERSION &&
+          n <= (uint32_t)VCard::MAX_CONTACTS) {
+        for (uint32_t i = 0; i < n; i++) {
+          if (file.read((uint8_t*)&index[i], sizeof(VCardIndex)) == (int)sizeof(VCardIndex)) {
+            count++;
+          }
+        }
+      }
+      file.close();
+    }
+  }
+
+  if (count == 0) {
+    delete[] index;
+    renderDefaultSleepScreen();
+    return;
+  }
+
+  // Pick a pseudorandom entry based on uptime
+  const unsigned long uptime = (unsigned long)(esp_timer_get_time() / 1000000ULL);
+  const int pick = (int)((uptime / 60) % (unsigned long)count);
+  const VCardIndex& contact = index[pick];
+
+  renderer.clearScreen();
+  const int pageWidth = renderer.getScreenWidth();
+  const int pageHeight = renderer.getScreenHeight();
+
+  renderer.drawCenteredText(UI_12_FONT_ID, pageHeight / 2 - 30, contact.name, true, EpdFontFamily::BOLD);
+  if (contact.phone[0] != '\0') {
+    renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2 + 10, contact.phone);
+  }
+
+  renderer.drawCenteredText(SMALL_FONT_ID, pageHeight - 40, tr(STR_CROSSPOINT));
+
+  delete[] index;
+
   renderer.displayBuffer(HalDisplay::HALF_REFRESH);
 }
