@@ -4,6 +4,24 @@
 
 ### Added
 
+#### Material 3 theme
+- Add `Material3Theme`: a new UI theme that maps Material Design 3 concepts to the monochrome e-paper display
+  - **Top App Bar** (64 px): white background, bold left-aligned title, battery top-right, 1 px bottom divider
+  - **List items** (56 px / 72 px with subtitle): black filled rounded-rect (12 px radius) for the selected row; file-type icons supported via `showsFileIcons()`
+  - **Secondary Tab Bar** (48 px): slot-per-tab layout with a 3 px black indicator pill under the active tab
+  - **Navigation Bar** (56 px): solid black full-width strip at the bottom with white text labels aligned over the physical buttons
+  - **Side button hints**: filled black rounded rects with white rotated text for X4; mirrored left/right for X3
+  - **Button menu tiles**: rounded card tiles (16 px radius); selected = black fill + white text, unselected = white + 1 px border
+  - **Dialog** (MD3 28 px corner radius): white card, 1 px border, 3 px LightGray offset shadow; linear progress indicator (4 px track + black fill) for progress dialogs
+  - **Filled Text Field**: LightGray dither background fill + bottom indicator line (2 px in cursor mode)
+  - **Keyboard keys** (48 px, 8 px radius): DarkGray dither fill normally; black fill + white text when selected; LightGray for disabled/inactive
+  - **Spinner**: inherited 3-dot spinner from BaseTheme with no changes
+  - Grayscale tonal mapping: primary → Black, secondary → DarkGray (~75 % dither), tertiary → LightGray (~25 % dither)
+  - Metrics follow an 8 px baseline grid (`contentSidePadding = 16`, `verticalSpacing = 8`, etc.)
+- Add `MATERIAL3 = 7` to `CrossPointSettings::UI_THEME` enum (selecting theme index 7 loads Material 3)
+- Add "Material 3" option to the UI Theme settings list
+- Add `STR_THEME_MATERIAL3` translation key (English: "Material 3"; other languages inherit the English string)
+
 #### Apps framework (biscuit fork integration)
 - Integrate biscuit fork app framework: 8-tile grid/radar apps menu (COMMS, TOOLS, CRYPTO, GAMES, READER, FILES, SYSTEM, SETTINGS) with curated app set
 - **COMMS**: `MeshChatActivity` (ESP-NOW peer-to-peer chat), `KarmaAttackActivity` (karma rogue-AP), `MacRandomizerActivity` (WiFi MAC spoofer)
