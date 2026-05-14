@@ -35,8 +35,10 @@ class RadioManager {
   // Ensure WiFi (IP stack) is available (deinits BLE/ESP-NOW if active)
   bool ensureWifi();
 
-  // Ensure BLE is available (deinits WiFi/ESP-NOW if active)
-  bool ensureBle();
+  // Ensure BLE is available (deinits WiFi/ESP-NOW if active).
+  // deviceName is passed to BLEDevice::init(); callers that do not need a
+  // custom name omit the argument and get the default "crosspoint" name.
+  bool ensureBle(const char* deviceName = "crosspoint");
 
   /**
    * Ensure ESP-NOW is available.

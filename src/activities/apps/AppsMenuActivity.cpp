@@ -13,6 +13,7 @@
 #include "CipherActivity.h"
 #include "ClockActivity.h"
 #include "DeviceInfoActivity.h"
+#include "ClaudeBuddyActivity.h"
 #include "KarmaAttackActivity.h"
 #include "MacRandomizerActivity.h"
 #include "MappedInputManager.h"
@@ -43,7 +44,7 @@
 // 8 radar nodes — kept in flash (.rodata).
 // Order: COMMS, TOOLS, CRYPTO, PDA, READER, FILES, SYSTEM, SETTINGS
 static constexpr RadarNode kRadarNodes[8] = {
-    {"COMMS", 3}, {"TOOLS", 5}, {"CRYPTO", 3}, {"PDA", 5},
+    {"COMMS", 4}, {"TOOLS", 5}, {"CRYPTO", 3}, {"PDA", 5},
     {"READER", 4}, {"FILES", 1}, {"SYSTEM", 3}, {"SETTINGS", 2},
 };
 
@@ -142,6 +143,10 @@ std::unique_ptr<Activity> AppsMenuActivity::buildCategory(int index) {
            [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<KarmaAttackActivity>(r, m); }},
           {"MAC Randomizer", "Randomize or restore the WiFi MAC address", UIIcon::Settings,
            [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MacRandomizerActivity>(r, m); }},
+          {"Claude Buddy", "BLE dashboard for Claude Desktop", UIIcon::Transfer,
+           [](GfxRenderer& r, MappedInputManager& m) {
+             return std::make_unique<ClaudeBuddyActivity>(r, m);
+           }},
       };
       return std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Comms", std::move(e), false, 0);
     }
@@ -384,7 +389,7 @@ void AppsMenuActivity::drawTile(int index, int x, int y, int w, int h, bool sele
     int appCount;
   };
   static constexpr TileInfo kTiles[ITEM_COUNT] = {
-      {"COMMS", "Chat, karma, MAC", 3},
+      {"COMMS", "Chat, karma, BLE", 4},
       {"TOOLS", "Productivity", 5},
       {"CRYPTO", "Cipher & codes", 3},
       {"PDA", "Personal tools", 5},
@@ -412,7 +417,7 @@ void AppsMenuActivity::drawTile(int index, int x, int y, int w, int h, bool sele
     char statusStr[48] = "";
     switch (index) {
       case 0:  // COMMS
-        snprintf(statusStr, sizeof(statusStr), "ESP-NOW: ready");
+        snprintf(statusStr, sizeof(statusStr), "ESP-NOW + BLE NUS");
         break;
       case 1:  // TOOLS
       case 2:  // CRYPTO

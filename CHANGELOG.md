@@ -4,6 +4,26 @@
 
 ### Added
 
+#### Claude Buddy (BLE NUS dashboard with ASCII pets)
+- **ClaudeBuddyActivity** (`src/activities/apps/ClaudeBuddyActivity.h/.cpp`): BLE dashboard app added to the **COMMS** tile
+  - Advertises as `ClaudeX4-<XXYY>` (last two MAC bytes) using the Nordic UART Service (NUS)
+  - Service UUID `6e400001-…`, RX (desktop→device) `6e400002-…`, TX (device→desktop) `6e400003-…`
+  - Parses the Hardware Buddy newline-delimited JSON protocol:
+    - **Heartbeat snapshots** — displays session counts (total / running / waiting), token counters (`tokens_today` + cumulative), and the `msg` summary field
+    - **Permission prompts** — when `prompt` is present, shows the tool name and hint; **Confirm** approves (`"once"`), **Right** denies; pet switches to `attention` state
+    - **Commands** — responds to `cmd:status` (name + uptime + heap), `cmd:owner`, `cmd:name`, `cmd:unpair`
+  - MTU-fragmented RX packets are reassembled in a 512-byte line buffer before parsing (BLE-003)
+  - `portMUX_TYPE` spinlock (BLE-001) protects `BuddyStats` between BLE task and render task; volatile event flags (BLE-002) bridge connect/disconnect events to `loop()`
+- **ASCII pet companion** — three pets, each with six animation states driven by live heartbeat data:
+  - `sleep` — not connected (ZZZ)
+  - `idle` — connected, nothing running
+  - `busy` — sessions actively generating
+  - `attention` — permission prompt waiting (overrides all others)
+  - `celebrate` — `tokens_today` crossed a new 50 K milestone (8 s)
+  - `heart` — approval was sent within the last 5 s
+  - Ships with **Cosmo** (cat), **Bleep** (robot), and **Boo** (ghost); **Confirm** cycles pets when no prompt is pending
+- Extend `RadioManager::ensureBle(const char* deviceName = "crosspoint")` to accept an optional BLE device name passed to `BLEDevice::init()`; existing callers unchanged
+
 #### Material 3 theme
 - Add `Material3Theme`: a new UI theme that maps Material Design 3 concepts to the monochrome e-paper display
   - **Top App Bar** (64 px): white background, bold left-aligned title, battery top-right, 1 px bottom divider

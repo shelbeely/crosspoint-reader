@@ -22,7 +22,7 @@ bool RadioManager::ensureWifi() {
   return true;
 }
 
-bool RadioManager::ensureBle() {
+bool RadioManager::ensureBle(const char* deviceName) {
   if (state == RadioState::BLE) return true;
 
   if (state == RadioState::WIFI) {
@@ -31,7 +31,7 @@ bool RadioManager::ensureBle() {
     deinitEspNow();
   }
 
-  BLEDevice::init("crosspoint");
+  BLEDevice::init(deviceName);
   state = RadioState::BLE;
   LOG_DBG("RADIO", "Switched to BLE mode, heap: %d", ESP.getFreeHeap());
   return true;
