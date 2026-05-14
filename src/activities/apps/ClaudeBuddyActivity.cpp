@@ -446,8 +446,14 @@ void ClaudeBuddyActivity::renderStats(const BuddyStats& snap) const {
 
 void ClaudeBuddyActivity::sendJson(const char* json) {
   if (!txChar || state != CONNECTED) return;
+  // Copy to a local buffer so we can pass uint8_t* without casting away const
+  // (Arduino BLE setValue takes non-const uint8_t* but only reads the data).
+  static constexpr size_t MAX_SEND = 200;
   size_t len = strlen(json);
-  txChar->setValue(reinterpret_cast<uint8_t*>(const_cast<char*>(json)), len);
+  if (len > MAX_SEND) len = MAX_SEND;
+  uint8_t buf[MAX_SEND];
+  memcpy(buf, json, len);
+  txChar->setValue(buf, len);
   txChar->notify();
 }
 
@@ -470,6 +476,8 @@ void ClaudeBuddyActivity::sendStatusAck() {
 void ClaudeBuddyActivity::processLine(const char* line) {
   if (!line || line[0] == '\0') return;
 
+  // ArduinoJson v7 has no StaticJsonDocument; JsonDocument is the correct v7 API.
+  // It allocates its pool from the heap and is freed on scope exit.
   JsonDocument doc;
   if (deserializeJson(doc, line)) return;  // parse error — ignore silently
 
